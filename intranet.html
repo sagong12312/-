@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8">  
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WorkNet — 사내 인트라넷</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -340,7 +340,6 @@ textarea.form-input{resize:vertical;min-height:90px}
       <div class="steps">
         <div class="step active" id="si1"><div class="step-circle">1</div><div class="step-label">기본 정보</div></div>
         <div class="step" id="si2"><div class="step-circle">2</div><div class="step-label">이메일 인증</div></div>
-        <div class="step" id="si3"><div class="step-circle">3</div><div class="step-label">전화번호 인증</div></div>
       </div>
       <div id="ws1">
         <div class="sec-div" style="margin-bottom:12px">기본 정보</div>
@@ -362,22 +361,7 @@ textarea.form-input{resize:vertical;min-height:90px}
         <div class="timer-txt" id="e-timer" style="margin-left:88px;margin-top:6px"></div>
         <div class="verify-ok" id="e-ok" style="margin-left:88px;margin-top:8px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>이메일 인증 완료</div>
       </div>
-      <div id="ws3" style="display:none">
-        <div class="sec-div" style="margin-bottom:12px">전화번호 인증</div>
-        <div class="alert alert-info" style="margin-bottom:12px">SMS 인증 시뮬레이션 모드. 콘솔(F12)에서 코드 확인.</div>
-        <div class="form-row">
-          <label>전화번호</label>
-          <div class="phone-wrap"><span class="phone-prefix">+82</span><input class="form-input" id="a-phone" type="tel" placeholder="010-0000-0000" oninput="fmtPhone(this)"></div>
-          <button class="btn sm primary" id="p-send-btn" onclick="sendPhoneOTP()" style="margin-left:8px;flex-shrink:0">코드 발송</button>
-        </div>
-        <div class="form-row" id="p-otp-row" style="margin-top:10px;display:none">
-          <label>인증코드</label>
-          <div class="otp-row"><input class="otp-input" id="p-otp" maxlength="6" placeholder="000000" oninput="this.value=this.value.replace(/\D/g,'')"><button class="btn sm primary" onclick="verifyPhoneOTP()">확인</button></div>
-        </div>
-        <div class="timer-txt" id="p-timer" style="margin-left:88px;margin-top:6px"></div>
-        <div class="verify-ok" id="p-ok" style="margin-left:88px;margin-top:8px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>전화번호 인증 완료</div>
-        <div style="margin-top:10px;margin-left:88px"><button class="btn sm" onclick="skipPhone()">건너뛰기</button></div>
-      </div>
+  </div>
     </div>
     <div class="modal-footer">
       <button class="btn sm" id="wiz-prev" onclick="wizPrev()" style="display:none">← 이전</button>
