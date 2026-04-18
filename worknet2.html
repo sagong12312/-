@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkNet — 사내 인트라넷</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--nav:#1a2235;--nav-hover:#243047;--nav-active:#2d3d5c;--accent:#4f8ef7;--accent2:#34c98a;--danger:#e2534a;--warn:#e8a430;--bg:#f0f2f5;--card:#fff;--border:#e2e4e9;--text:#1a1d23;--muted:#6b7280;--hint:#9ca3af;--bg2:#f6f8fa}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#loading-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1a2235,#2d3d5c);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;gap:16px}
+.spinner-big{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:#4f8ef7;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:rgba(255,255,255,.7);font-size:13px}
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1a2235,#2d3d5c);display:none;align-items:center;justify-content:center;z-index:1000}
+.login-box{background:#fff;border-radius:16px;padding:36px 40px;width:400px;max-width:95vw;box-shadow:0 32px 80px rgba(0,0,0,.35)}
+.login-logo{font-size:24px;font-weight:700;color:var(--nav);margin-bottom:4px}.login-logo span{color:var(--accent)}
+.login-sub{font-size:13px;color:var(--muted);margin-bottom:28px}
+.login-label{font-size:12px;font-weight:500;color:var(--text);margin-bottom:6px;display:block}
+.login-input{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:14px;font-family:inherit;color:var(--text);outline:none;transition:border .15s;margin-bottom:14px}
+.login-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.login-btn{width:100%;padding:11px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+.login-btn:hover{background:#3d7de8}
+.login-error{font-size:12px;color:var(--danger);margin-top:8px;display:none;text-align:center}
+.login-footer{margin-top:18px;text-align:center;font-size:12px;color:var(--muted)}
+.login-footer a{color:var(--accent);cursor:pointer;text-decoration:underline}
+.shell{display:flex;flex:1;overflow:hidden}
+.sidebar{width:210px;background:var(--nav);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.logo{padding:20px 16px 14px;color:#fff;font-size:16px;font-weight:700;border-bottom:1px solid rgba(255,255,255,.08)}.logo span{color:var(--accent);font-size:11px;display:block;margin-top:2px;font-weight:400}
+.nav-group{padding:12px 8px 4px}
+.nav-label{font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.9px;padding:0 8px 7px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer;color:rgba(255,255,255,.65);font-size:13px;transition:all .15s;user-select:none}
+.nav-item:hover{background:var(--nav-hover);color:#fff}.nav-item.active{background:var(--nav-active);color:#fff}
+.nav-icon{width:16px;height:16px;flex-shrink:0;opacity:.75}.nav-item.active .nav-icon,.nav-item:hover .nav-icon{opacity:1}
+.badge{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;flex-shrink:0}.badge-red{background:#e2534a;color:#fff}
+.sidebar-footer{margin-top:auto;padding:12px 8px 10px;border-top:1px solid rgba(255,255,255,.07)}
+.user-card{display:flex;align-items:center;gap:9px;padding:8px 10px}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:700;flex-shrink:0}
+.user-info{flex:1;min-width:0}.user-name{font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.user-role{font-size:10px;color:rgba(255,255,255,.4)}
+.admin-pill{font-size:9px;background:rgba(226,83,74,.2);color:#f87171;padding:2px 6px;border-radius:4px;border:1px solid rgba(226,83,74,.3);white-space:nowrap;flex-shrink:0}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:12px 20px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.topbar-info{flex:1}.topbar-title{font-size:15px;font-weight:600}.topbar-sub{font-size:12px;color:var(--muted);margin-top:1px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;color:var(--text);transition:all .15s;font-family:inherit;white-space:nowrap}
+.btn:hover{background:var(--bg2)}.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.primary:hover{background:#3d7de8}
+.btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}.btn.success{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.btn.sm{padding:5px 10px;font-size:12px;border-radius:6px}.btn.xs{padding:3px 8px;font-size:11px;border-radius:5px}
+.btn:disabled{opacity:.4;cursor:default;pointer-events:none}
+.toolbar{padding:8px 20px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+.toolbar-select{font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit;cursor:pointer}
+.sel-info{font-size:12px;color:var(--accent);font-weight:500;min-width:60px}.spacer{flex:1}
+.panel{display:none;flex-direction:column;height:100%}.panel.active{display:flex}
+.mail-list{flex:1;overflow:auto;background:var(--card)}
+.mail-table{width:100%;border-collapse:collapse}
+.mail-thead th{padding:8px 16px;font-size:11px;color:var(--muted);font-weight:500;text-align:left;background:var(--bg2);border-bottom:1px solid var(--border);white-space:nowrap}
+.mail-row{border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}.mail-row:hover{background:var(--bg2)}.mail-row.selected{background:#eff6ff}
+.mail-row td{padding:11px 16px;font-size:13px;vertical-align:middle}
+.unread-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block}.read-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.unread td{font-weight:500}
+.mail-from{width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mail-subj-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.attach-badge{font-size:10px;background:#eff6ff;color:var(--accent);padding:1px 5px;border-radius:4px;border:1px solid #bfdbfe;white-space:nowrap}
+.mail-time{width:90px;text-align:right;font-size:12px;color:var(--muted);white-space:nowrap}
+input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.board-list{flex:1;overflow:auto;background:var(--card)}
+.board-table{width:100%;border-collapse:collapse}
+.board-thead th{padding:8px 16px;font-size:11px;color:var(--muted);font-weight:500;text-align:left;background:var(--bg2);border-bottom:1px solid var(--border);white-space:nowrap}
+.board-row{border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}.board-row:hover{background:var(--bg2)}.board-row.selected{background:#eff6ff}
+.board-row td{padding:11px 16px;font-size:13px;vertical-align:middle}
+.cat-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap}
+.cat-notice{background:#eff6ff;color:#2563eb}.cat-news{background:#ecfdf5;color:#059669}.cat-qa{background:#fffbeb;color:#d97706}
+.priv-badge{font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:4px;border:1px solid #fecaca;margin-right:4px}
+.board-title-inner{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center}
+.board-author{width:80px;text-align:center;font-size:12px;color:var(--muted)}.board-date{width:80px;text-align:right;font-size:12px;color:var(--muted)}.board-views{width:50px;text-align:right;font-size:12px;color:var(--hint)}
+.file-area{flex:1;overflow:auto;padding:20px;background:var(--bg)}
+.file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.file-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;user-select:none}
+.file-card:hover{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.1)}.file-card.selected{border-color:var(--accent);background:#eff6ff}
+.file-card .cb{position:absolute;top:8px;left:8px}
+.file-icon{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.ext-pdf{background:#fef2f2;color:#dc2626}.ext-xlsx{background:#ecfdf5;color:#059669}.ext-docx{background:#eff6ff;color:#2563eb}.ext-pptx{background:#fffbeb;color:#d97706}.ext-zip{background:#f3f4f6;color:#6b7280}.ext-img{background:#f0fdf4;color:#16a34a}
+.file-name{font-size:11px;text-align:center;word-break:break-all;line-height:1.45;max-width:100%}
+.file-meta{font-size:10px;color:var(--hint)}
+.accounts-body{flex:1;overflow:auto;padding:20px;background:var(--bg)}
+.acc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.acc-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.acc-card-top{display:flex;align-items:center;gap:12px}
+.acc-avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0}
+.acc-name{font-size:14px;font-weight:600}.acc-dept{font-size:12px;color:var(--muted)}.acc-email-t{font-size:12px;color:var(--accent)}
+.acc-badges{display:flex;gap:6px;flex-wrap:wrap}
+.status-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500}
+.s-active{background:#ecfdf5;color:#059669;border:1px solid #a7f3d0}.s-pending{background:#fffbeb;color:#d97706;border:1px solid #fde68a}.s-inactive{background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb}
+.r-admin{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}.r-user{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe}
+.verify-badges{display:flex;gap:5px;flex-wrap:wrap}
+.vbadge{font-size:10px;padding:2px 7px;border-radius:8px;display:flex;align-items:center;gap:3px;border:1px solid transparent}
+.vok{background:#ecfdf5;color:#059669;border-color:#a7f3d0}.vno{background:#f9fafb;color:#9ca3af;border-color:#e5e7eb}
+.acc-actions{display:flex;gap:6px;flex-wrap:wrap}
+.statusbar{padding:7px 20px;background:var(--card);border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;font-size:11px;color:var(--muted);flex-shrink:0}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center}.modal-overlay.open{display:flex}
+.modal{background:var(--card);border-radius:14px;border:1px solid var(--border);width:520px;max-width:96vw;max-height:90vh;overflow:auto;box-shadow:0 24px 64px rgba(0,0,0,.25)}.modal.sm{width:440px}
+.modal-head{padding:15px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--card);z-index:1}
+.modal-head h3{font-size:15px;font-weight:600}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--muted);font-size:22px;line-height:1;padding:0}.modal-close:hover{color:var(--text)}
+.modal-body{padding:18px;display:flex;flex-direction:column;gap:13px}
+.modal-footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:var(--card)}
+.form-row{display:flex;align-items:center;gap:12px}
+.form-row label{width:76px;font-size:13px;color:var(--muted);flex-shrink:0;text-align:right}
+.form-input{flex:1;border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;transition:border .15s;outline:none}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+textarea.form-input{resize:vertical;min-height:90px}
+.form-select{flex:1;border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;outline:none;cursor:pointer}
+.verify-row{display:flex;gap:8px;align-items:center;flex:1}
+.otp-row{display:flex;gap:8px;align-items:center;flex:1}
+.otp-input{flex:1;border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:18px;letter-spacing:8px;text-align:center;background:var(--bg);color:var(--text);font-family:monospace;outline:none}
+.otp-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.verify-ok{color:var(--accent2);font-size:12px;font-weight:500;display:none;align-items:center;gap:4px}.verify-ok.show{display:flex}
+.timer-txt{font-size:11px;color:var(--muted);display:none}.timer-txt.show{display:block}
+.phone-prefix{padding:8px 10px;border:1px solid var(--border);border-right:0;border-radius:7px 0 0 7px;background:var(--bg2);font-size:13px;color:var(--muted);flex-shrink:0}
+.phone-wrap{display:flex;flex:1}.phone-wrap .form-input{border-radius:0 7px 7px 0}
+.steps{display:flex;margin-bottom:4px}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative}
+.step:not(:last-child)::after{content:'';position:absolute;top:13px;left:50%;width:100%;height:1px;background:var(--border);z-index:0}
+.step.done::after{background:var(--accent2)}
+.step-circle{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;background:var(--card);position:relative;z-index:1;color:var(--muted)}
+.step.active .step-circle{border-color:var(--accent);color:var(--accent)}.step.done .step-circle{border-color:var(--accent2);background:var(--accent2);color:#fff}
+.step-label{font-size:10px;color:var(--muted);white-space:nowrap}.step.active .step-label{color:var(--accent);font-weight:500}
+.sec-div{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--border);margin-top:2px}
+.alert{padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.6}
+.alert-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}.alert-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+.cat-row{display:flex;gap:8px}
+.cat-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:12px;color:var(--muted);font-family:inherit;transition:all .15s}
+.cat-btn.active{border-color:var(--accent);background:#eff6ff;color:var(--accent)}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(60px);background:#1a2235;color:#fff;font-size:13px;padding:10px 20px;border-radius:9px;z-index:9999;transition:transform .25s,opacity .25s;opacity:0;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);padding:40px;font-size:13px}
+</style>
+</head>
+<body>
+<div id="loading-screen">
+  <div class="spinner-big"></div>
+  <div class="loading-text">WorkNet 로딩 중...</div>
+</div>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">Work<span>Net</span></div>
+    <div class="login-sub">사내 인트라넷 포털</div>
+    <label class="login-label">이메일</label>
+    <input class="login-input" id="lid" type="email" placeholder="your@company.com" onkeydown="if(event.key==='Enter')document.getElementById('lpw').focus()">
+    <label class="login-label">비밀번호</label>
+    <input class="login-input" id="lpw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="login-error" id="lerr"></div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">로그인</button>
+    <div class="login-footer"><a onclick="openModal('register')">회원가입 요청</a> &nbsp;·&nbsp; <a onclick="openModal('forgot')">비밀번호 찾기</a></div>
+  </div>
+</div>
+
+<div class="shell" id="app" style="display:none">
+<nav class="sidebar">
+  <div class="logo">WorkNet <span>사내 인트라넷 포털</span></div>
+  <div class="nav-group">
+    <div class="nav-label">메일</div>
+    <div class="nav-item active" onclick="showPanel('inbox',this)">
+      <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>
+      받은 메일함 <span class="badge badge-red" id="ubadge" style="display:none">0</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('sent',this)">
+      <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      보낸 메일함
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">게시판</div>
+    <div class="nav-item" onclick="showPanel('board',this)">
+      <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+      전체 게시판
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">파일함</div>
+    <div class="nav-item" onclick="showPanel('files',this)">
+      <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      공유 파일함
+    </div>
+  </div>
+  <div class="nav-group" id="admin-nav" style="display:none">
+    <div class="nav-label">관리자</div>
+    <div class="nav-item" onclick="showPanel('accounts',this)">
+      <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      계정 관리
+    </div>
+    <div class="nav-item" onclick="showPanel('depts',this)">
+      <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+      부서 관리
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="avatar" id="s-av">?</div>
+      <div class="user-info">
+        <div class="user-name" id="s-name"></div>
+        <div class="user-role" id="s-role"></div>
+      </div>
+      <span class="admin-pill" id="s-pill" style="display:none">ADMIN</span>
+    </div>
+    <div style="padding:4px 10px">
+      <button class="btn sm" style="width:100%;justify-content:center;color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.12);background:transparent" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+</nav>
+<div class="main">
+
+<div id="panel-inbox" class="panel active">
+  <div class="topbar"><div class="topbar-info"><div class="topbar-title">받은 메일함</div><div class="topbar-sub" id="inbox-sub"></div></div><div class="spacer"></div>
+    <button class="btn primary" onclick="openModal('compose')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>새 메일 작성</button>
+  </div>
+  <div class="toolbar">
+    <input type="checkbox" id="inbox-cb" onchange="toggleAll('inbox')">
+    <label for="inbox-cb" style="font-size:13px;cursor:pointer;color:var(--muted)">전체선택</label>
+    <span class="sel-info" id="inbox-si"></span><div class="spacer"></div>
+    <button class="btn sm" id="inbox-del" style="display:none" onclick="deleteSelected('inbox')">선택 삭제</button>
+    <select class="toolbar-select" onchange="mailFil=this.value;renderInbox()"><option value="all">전체</option><option value="unread">읽지 않음</option></select>
+  </div>
+  <div class="mail-list"><table class="mail-table"><thead><tr><th style="width:36px"></th><th style="width:12px"></th><th>보낸 사람</th><th>제목</th><th style="width:90px;text-align:right">날짜</th></tr></thead><tbody id="inbox-tbody"></tbody></table></div>
+  <div class="statusbar"><span id="inbox-stat"></span></div>
+</div>
+
+<div id="panel-sent" class="panel">
+  <div class="topbar"><div class="topbar-info"><div class="topbar-title">보낸 메일함</div><div class="topbar-sub" id="sent-sub"></div></div><div class="spacer"></div>
+    <button class="btn primary" onclick="openModal('compose')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>새 메일 작성</button>
+  </div>
+  <div class="toolbar">
+    <input type="checkbox" id="sent-cb" onchange="toggleAll('sent')">
+    <label for="sent-cb" style="font-size:13px;cursor:pointer;color:var(--muted)">전체선택</label>
+    <span class="sel-info" id="sent-si"></span><div class="spacer"></div>
+    <button class="btn sm" id="sent-del" style="display:none" onclick="deleteSelected('sent')">선택 삭제</button>
+  </div>
+  <div class="mail-list"><table class="mail-table"><thead><tr><th style="width:36px"></th><th>받는 사람</th><th>제목</th><th style="width:90px;text-align:right">날짜</th></tr></thead><tbody id="sent-tbody"></tbody></table></div>
+  <div class="statusbar"><span id="sent-stat"></span></div>
+</div>
+
+<div id="panel-board" class="panel">
+  <div class="topbar"><div class="topbar-info"><div class="topbar-title">전체 게시판</div><div class="topbar-sub">공지 · 뉴스 · Q&A</div></div><div class="spacer"></div>
+    <button class="btn primary" onclick="openModal('post')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>게시물 작성</button>
+  </div>
+  <div class="toolbar">
+    <input type="checkbox" id="board-cb" onchange="toggleAll('board')">
+    <label for="board-cb" style="font-size:13px;cursor:pointer;color:var(--muted)">전체선택</label>
+    <span class="sel-info" id="board-si"></span><div class="spacer"></div>
+    <button class="btn sm danger" id="board-del" style="display:none" onclick="deleteSelected('board')">삭제</button>
+    <button class="btn sm" id="board-priv" style="display:none" onclick="togglePrivate()">비공개 처리</button>
+    <select class="toolbar-select" onchange="boardFil=this.value;renderBoard()"><option value="all">전체</option><option value="공지">공지</option><option value="뉴스">뉴스</option><option value="Q&A">Q&A</option></select>
+  </div>
+  <div class="board-list"><table class="board-table"><thead><tr><th style="width:36px"></th><th style="width:56px">분류</th><th>제목</th><th class="board-author">작성자</th><th class="board-date">날짜</th><th class="board-views">조회</th></tr></thead><tbody id="board-tbody"></tbody></table></div>
+  <div class="statusbar"><span id="board-stat"></span><div class="spacer"></div><span class="admin-pill" id="board-admin-pill" style="display:none">관리자 모드</span></div>
+</div>
+
+<div id="panel-files" class="panel">
+  <div class="topbar"><div class="topbar-info"><div class="topbar-title">공유 파일함</div><div class="topbar-sub">팀 공유 파일</div></div><div class="spacer"></div>
+    <button class="btn primary" onclick="openModal('upload')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>파일 등록</button>
+  </div>
+  <div class="toolbar">
+    <input type="checkbox" id="files-cb" onchange="toggleAll('files')">
+    <label for="files-cb" style="font-size:13px;cursor:pointer;color:var(--muted)">전체선택</label>
+    <span class="sel-info" id="files-si"></span><div class="spacer"></div>
+    <button class="btn sm danger" id="files-del" style="display:none" onclick="deleteSelected('files')">선택 삭제</button>
+    <select class="toolbar-select" onchange="filesFil=this.value;renderFiles()"><option value="all">전체</option><option value="pdf">PDF</option><option value="xlsx">Excel</option><option value="docx">Word</option><option value="pptx">PPT</option></select>
+  </div>
+  <div class="file-area"><div class="file-grid" id="file-grid"></div></div>
+  <div class="statusbar"><span id="files-stat"></span></div>
+</div>
+
+<div id="panel-accounts" class="panel">
+  <div class="topbar"><div class="topbar-info"><div class="topbar-title">계정 관리</div><div class="topbar-sub" id="acc-sub"></div></div><div class="spacer"></div>
+    <button class="btn primary" onclick="openModal('addAcc')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>계정 만들기</button>
+  </div>
+  <div class="toolbar">
+    <select class="toolbar-select" onchange="accFil=this.value;renderAccounts()"><option value="all">전체 상태</option><option value="active">활성</option><option value="pending">대기</option><option value="inactive">비활성</option></select>
+    <select class="toolbar-select" id="acc-dept-fil" onchange="accDeptFil=this.value;renderAccounts()"><option value="all">전체 부서</option></select>
+    <div class="spacer"></div>
+    <input type="text" class="toolbar-select" placeholder="이름·이메일 검색..." style="width:180px" oninput="accSearch=this.value;renderAccounts()">
+  </div>
+  <div class="accounts-body"><div class="acc-grid" id="acc-grid"></div></div>
+  <div class="statusbar"><span id="acc-stat"></span><div class="spacer"></div><span class="admin-pill">관리자 전용</span></div>
+</div>
+
+<!-- 부서 관리 패널 -->
+<div id="panel-depts" class="panel">
+  <div class="topbar"><div class="topbar-info"><div class="topbar-title">부서 관리</div><div class="topbar-sub" id="dept-sub"></div></div><div class="spacer"></div>
+    <button class="btn primary" onclick="openModal('addDept')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>부서 만들기</button>
+  </div>
+  <div class="accounts-body">
+    <div class="acc-grid" id="dept-grid"></div>
+  </div>
+  <div class="statusbar"><span id="dept-stat"></span><div class="spacer"></div><span class="admin-pill">관리자 전용</span></div>
+</div>
+
+</div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-compose">
+  <div class="modal"><div class="modal-head"><h3>새 메일 작성</h3><button class="modal-close" onclick="closeModal('compose')">×</button></div>
+    <div class="modal-body">
+      <div class="form-row"><label>받는 이</label><input class="form-input" id="m-to" placeholder="이름 또는 이메일"></div>
+      <div class="form-row"><label>제목</label><input class="form-input" id="m-subj" placeholder="메일 제목"></div>
+      <div class="form-row" style="align-items:flex-start"><label style="padding-top:8px">본문</label><textarea class="form-input" id="m-body" placeholder="내용을 입력하세요..."></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn sm" onclick="closeModal('compose')">취소</button><button class="btn sm primary" onclick="sendMail()">발송</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-post">
+  <div class="modal"><div class="modal-head"><h3>게시물 작성</h3><button class="modal-close" onclick="closeModal('post')">×</button></div>
+    <div class="modal-body">
+      <div class="form-row"><label>카테고리</label><div class="cat-row"><button class="cat-btn active" onclick="selCat(this,'공지')">공지</button><button class="cat-btn" onclick="selCat(this,'뉴스')">뉴스</button><button class="cat-btn" onclick="selCat(this,'Q&A')">Q&A</button></div></div>
+      <div class="form-row"><label>공개</label><div style="display:flex;gap:16px"><label style="width:auto;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="pv" value="public" checked style="accent-color:var(--accent)">공개</label><label style="width:auto;display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="pv" value="private" style="accent-color:var(--accent)">비공개</label></div></div>
+      <div class="form-row"><label>제목</label><input class="form-input" id="p-title" placeholder="게시물 제목"></div>
+      <div class="form-row" style="align-items:flex-start"><label style="padding-top:8px">내용</label><textarea class="form-input" id="p-body" style="min-height:110px" placeholder="내용 입력..."></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn sm" onclick="closeModal('post')">취소</button><button class="btn sm primary" onclick="submitPost()">게시하기</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-upload">
+  <div class="modal sm"><div class="modal-head"><h3>파일 등록</h3><button class="modal-close" onclick="closeModal('upload')">×</button></div>
+    <div class="modal-body">
+      <div class="form-row"><label>파일 이름</label><input class="form-input" id="u-name" placeholder="파일명.pdf"></div>
+      <div class="form-row"><label>파일 크기</label><input class="form-input" id="u-size" placeholder="예: 2.4MB"></div>
+      <div class="form-row"><label>파일 종류</label><select class="form-select" id="u-ext"><option value="pdf">PDF</option><option value="xlsx">Excel</option><option value="docx">Word</option><option value="pptx">PPT</option><option value="zip">ZIP</option><option value="img">이미지</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn sm" onclick="closeModal('upload')">취소</button><button class="btn sm primary" onclick="submitFile()">등록</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-addAcc">
+  <div class="modal"><div class="modal-head"><h3>새 계정 추가</h3><button class="modal-close" onclick="closeModal('addAcc')">×</button></div>
+    <div class="modal-body">
+      <div class="steps">
+        <div class="step active" id="si1"><div class="step-circle">1</div><div class="step-label">기본 정보</div></div>
+        <div class="step" id="si2"><div class="step-circle">2</div><div class="step-label">이메일 인증</div></div>
+        <div class="step" id="si3"><div class="step-circle">3</div><div class="step-label">전화번호 인증</div></div>
+      </div>
+      <div id="ws1">
+        <div class="sec-div" style="margin-bottom:12px">기본 정보</div>
+        <div class="form-row"><label>이름</label><input class="form-input" id="a-name" placeholder="홍길동"></div>
+        <div class="form-row" style="margin-top:10px"><label>이메일</label><input class="form-input" id="a-email" type="email" placeholder="hong@company.com"></div>
+        <div class="form-row" style="margin-top:10px"><label>부서</label><select class="form-select" id="a-dept"><option>개발팀</option><option>인사팀</option><option>영업팀</option><option>총무팀</option><option>기획팀</option><option>법무팀</option><option>마케팅팀</option><option>IT지원팀</option><option>경영지원</option></select></div>
+        <div class="form-row" style="margin-top:10px"><label>직급</label><select class="form-select" id="a-pos"><option>사원</option><option>대리</option><option>과장</option><option>차장</option><option>부장</option><option>이사</option></select></div>
+        <div class="form-row" style="margin-top:10px"><label>권한</label><select class="form-select" id="a-role"><option value="user">일반 사용자</option><option value="admin">관리자</option></select></div>
+        <div class="form-row" style="margin-top:10px"><label>임시 비밀번호</label><input class="form-input" id="a-pw" readonly style="background:var(--bg2);font-family:monospace"><button class="btn sm" onclick="genPw()" style="margin-left:8px;flex-shrink:0">생성</button></div>
+      </div>
+      <div id="ws2" style="display:none">
+        <div class="sec-div" style="margin-bottom:12px">이메일 인증</div>
+        <div class="alert alert-info" style="margin-bottom:12px">이메일로 6자리 인증코드를 발송합니다. EmailJS 미설정 시 콘솔(F12)에서 확인.</div>
+        <div class="form-row"><label>코드 발송</label><button class="btn sm primary" id="e-send-btn" onclick="sendEmailOTP()">코드 발송</button></div>
+        <div class="form-row" id="e-otp-row" style="margin-top:10px;display:none">
+          <label>인증코드</label>
+          <div class="otp-row"><input class="otp-input" id="e-otp" maxlength="6" placeholder="000000" oninput="this.value=this.value.replace(/\D/g,'')"><button class="btn sm primary" onclick="verifyEmailOTP()">확인</button></div>
+        </div>
+        <div class="timer-txt" id="e-timer" style="margin-left:88px;margin-top:6px"></div>
+        <div class="verify-ok" id="e-ok" style="margin-left:88px;margin-top:8px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>이메일 인증 완료</div>
+      </div>
+      <div id="ws3" style="display:none">
+        <div class="sec-div" style="margin-bottom:12px">전화번호 인증</div>
+        <div class="alert alert-info" style="margin-bottom:12px">SMS 인증 시뮬레이션 모드. 콘솔(F12)에서 코드 확인.</div>
+        <div class="form-row">
+          <label>전화번호</label>
+          <div class="phone-wrap"><span class="phone-prefix">+82</span><input class="form-input" id="a-phone" type="tel" placeholder="010-0000-0000" oninput="fmtPhone(this)"></div>
+          <button class="btn sm primary" id="p-send-btn" onclick="sendPhoneOTP()" style="margin-left:8px;flex-shrink:0">코드 발송</button>
+        </div>
+        <div class="form-row" id="p-otp-row" style="margin-top:10px;display:none">
+          <label>인증코드</label>
+          <div class="otp-row"><input class="otp-input" id="p-otp" maxlength="6" placeholder="000000" oninput="this.value=this.value.replace(/\D/g,'')"><button class="btn sm primary" onclick="verifyPhoneOTP()">확인</button></div>
+        </div>
+        <div class="timer-txt" id="p-timer" style="margin-left:88px;margin-top:6px"></div>
+        <div class="verify-ok" id="p-ok" style="margin-left:88px;margin-top:8px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>전화번호 인증 완료</div>
+        <div style="margin-top:10px;margin-left:88px"><button class="btn sm" onclick="skipPhone()">건너뛰기</button></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn sm" id="wiz-prev" onclick="wizPrev()" style="display:none">← 이전</button>
+      <div class="spacer"></div>
+      <button class="btn sm" onclick="closeModal('addAcc')">취소</button>
+      <button class="btn sm primary" id="wiz-next" onclick="wizNext()">다음 →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-forgot">
+  <div class="modal sm"><div class="modal-head"><h3>비밀번호 재설정</h3><button class="modal-close" onclick="closeModal('forgot')">×</button></div>
+    <div class="modal-body">
+      <div class="alert alert-info">가입된 이메일로 비밀번호 재설정 링크를 보내드립니다.</div>
+      <div class="form-row"><label>이메일</label><input class="form-input" id="fg-email" type="email" placeholder="your@company.com"></div>
+      <div class="verify-ok" id="fg-ok" style="margin-left:88px;margin-top:4px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>재설정 메일이 발송되었습니다.</div>
+    </div>
+    <div class="modal-footer"><button class="btn sm" onclick="closeModal('forgot')">닫기</button><button class="btn sm primary" onclick="sendPwReset()">재설정 메일 발송</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-register">
+  <div class="modal sm"><div class="modal-head"><h3>회원가입 요청</h3><button class="modal-close" onclick="closeModal('register')">×</button></div>
+    <div class="modal-body">
+      <div class="alert alert-warn">관리자 승인 후 계정이 활성화됩니다.</div>
+      <div class="form-row"><label>이름</label><input class="form-input" id="r-name" placeholder="홍길동"></div>
+      <div class="form-row"><label>이메일</label>
+        <div class="verify-row"><input class="form-input" id="r-email" type="email" placeholder="your@company.com"><button class="btn sm primary" onclick="sendRegOTP()">인증코드</button></div>
+      </div>
+      <div class="form-row" id="r-otp-row" style="display:none">
+        <label>인증코드</label>
+        <div class="otp-row"><input class="otp-input" id="r-otp" maxlength="6" placeholder="000000" oninput="this.value=this.value.replace(/\D/g,'')"><button class="btn sm primary" onclick="verifyRegOTP()">확인</button></div>
+      </div>
+      <div class="verify-ok" id="r-ok" style="margin-left:88px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>이메일 인증 완료</div>
+      <div class="form-row"><label>부서</label><select class="form-select" id="r-dept"><option>개발팀</option><option>인사팀</option><option>영업팀</option><option>총무팀</option></select></div>
+      <div class="form-row"><label>비밀번호</label><input class="form-input" id="r-pw" type="password" placeholder="6자 이상"></div>
+    </div>
+    <div class="modal-footer"><button class="btn sm" onclick="closeModal('register')">취소</button><button class="btn sm primary" onclick="submitReg()">가입 요청</button></div>
+  </div>
+</div>
+
+<!-- 계정 편집 모달 -->
+<div class="modal-overlay" id="modal-editAcc">
+  <div class="modal sm"><div class="modal-head"><h3>계정 정보 수정</h3><button class="modal-close" onclick="closeModal('editAcc')">×</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-acc-id">
+      <div class="form-row"><label>이름</label><input class="form-input" id="edit-name" placeholder="이름"></div>
+      <div class="form-row" style="margin-top:10px"><label>직급</label>
+        <select class="form-select" id="edit-pos">
+          <option>사원</option><option>대리</option><option>과장</option><option>차장</option><option>부장</option><option>이사</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin-top:10px"><label>부서</label>
+        <select class="form-select" id="edit-dept"></select>
+      </div>
+      <div class="form-row" style="margin-top:10px"><label>권한</label>
+        <select class="form-select" id="edit-role">
+          <option value="user">일반 사용자</option><option value="admin">관리자</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn sm" onclick="closeModal('editAcc')">취소</button><button class="btn sm primary" onclick="saveEditAcc()">저장</button></div>
+  </div>
+</div>
+
+<!-- 부서 만들기 모달 -->
+<div class="modal-overlay" id="modal-addDept">
+  <div class="modal sm"><div class="modal-head"><h3>부서 만들기</h3><button class="modal-close" onclick="closeModal('addDept')">×</button></div>
+    <div class="modal-body">
+      <div class="form-row"><label>부서 이름</label><input class="form-input" id="dept-name" placeholder="예: 디자인팀"></div>
+      <div class="form-row" style="margin-top:10px"><label>설명</label><input class="form-input" id="dept-desc" placeholder="부서 설명 (선택)"></div>
+    </div>
+    <div class="modal-footer"><button class="btn sm" onclick="closeModal('addDept')">취소</button><button class="btn sm primary" onclick="submitDept()">만들기</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import{getFirestore,collection,addDoc,getDocs,deleteDoc,doc,updateDoc,query,orderBy,onSnapshot,serverTimestamp,where,getDoc}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,sendPasswordResetEmail}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+const app=initializeApp({
+  apiKey:"AIzaSyDgvNHjPUrigAfbCv3XKksp8KL4PGMFMI0",
+  authDomain:"worknet-effaa.firebaseapp.com",
+  projectId:"worknet-effaa",
+  storageBucket:"worknet-effaa.firebasestorage.app",
+  messagingSenderId:"514627251571",
+  appId:"1:514627251571:web:3832d0cce7be53aed3a906"
+});
+const db=getFirestore(app);
+const auth=getAuth(app);
+
+const EJS_KEY='YOUR_PUBLIC_KEY',EJS_SERVICE='YOUR_SERVICE_ID',EJS_TMPL='YOUR_OTP_TEMPLATE_ID';
+let ejsReady=false;
+try{emailjs.init({publicKey:EJS_KEY});ejsReady=(EJS_KEY!=='YOUR_PUBLIC_KEY');}catch(e){}
+
+let curUser=null,curProfile=null;
+let mails=[],sentMails=[],boards=[],files=[],accounts=[];
+const sel={inbox:new Set(),sent:new Set(),board:new Set(),files:new Set()};
+let mailFil='all',boardFil='all',filesFil='all',accFil='all',accSearch='';
+let curCat='공지',wizStep=1,eVerified=false,pVerified=false,rgVerified=false;
+let otps={e:'',p:'',r:''};let timers={};
+
+let accDeptFil='all';
+
+onAuthStateChanged(auth,async user=>{
+  document.getElementById('loading-screen').style.display='none';
+  if(user){
+    curUser=user;
+    const snap=await getDocs(query(collection(db,'users'),where('email','==',user.email)));
+    if(!snap.empty){
+      curProfile={id:snap.docs[0].id,...snap.docs[0].data()};
+    }else{
+      const ref=await addDoc(collection(db,'users'),{
+        name:'관리자',dept:'IT지원팀',pos:'부장',role:'admin',
+        email:user.email,phone:'',status:'active',eV:true,pV:false,
+        color:'#4f8ef7',createdAt:serverTimestamp()
+      });
+      curProfile={id:ref.id,name:'관리자',dept:'IT지원팀',pos:'부장',role:'admin',email:user.email,phone:'',status:'active',eV:true,pV:false,color:'#4f8ef7'};
+    }
+    showApp();loadAll();
+  }else{
+    curUser=null;curProfile=null;
+    document.getElementById('app').style.display='none';
+    document.getElementById('login-screen').style.display='flex';
+  }
+});
+
+window.doLogin=async function(){
+  const email=document.getElementById('lid').value.trim();
+  const pw=document.getElementById('lpw').value;
+  const btn=document.getElementById('login-btn');
+  const err=document.getElementById('lerr');
+  if(!email||!pw){err.textContent='이메일과 비밀번호를 입력하세요.';err.style.display='block';return;}
+  btn.textContent='로그인 중...';btn.disabled=true;
+  try{
+    await signInWithEmailAndPassword(auth,email,pw);
+    err.style.display='none';
+  }catch(e){
+    err.textContent=e.code==='auth/invalid-credential'?'이메일 또는 비밀번호가 올바르지 않습니다.':'로그인 실패: '+e.message;
+    err.style.display='block';
+  }
+  btn.textContent='로그인';btn.disabled=false;
+};
+
+window.doLogout=async function(){await signOut(auth);toast('로그아웃되었습니다.');};
+
+function showApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('s-av').textContent=(curProfile?.name||'?')[0];
+  document.getElementById('s-av').style.background=curProfile?.color||'#4f8ef7';
+  document.getElementById('s-name').textContent=curProfile?.name||curUser.email;
+  document.getElementById('s-role').textContent=(curProfile?.dept||'')+' · '+(curProfile?.pos||'');
+  const isAdmin=curProfile?.role==='admin';
+  document.getElementById('s-pill').style.display=isAdmin?'':'none';
+  document.getElementById('admin-nav').style.display=isAdmin?'':'none';
+  document.getElementById('board-admin-pill').style.display=isAdmin?'':'none';
+}
+
+let depts=[];
+
+function loadAll(){
+  onSnapshot(query(collection(db,'mails'),orderBy('createdAt','desc')),snap=>{
+    mails=snap.docs.filter(d=>{const t=d.data().to;return t===curUser.email||t==='all';}).map(d=>({id:d.id,...d.data()}));
+    renderInbox();
+  });
+  onSnapshot(query(collection(db,'mails'),orderBy('createdAt','desc')),snap=>{
+    sentMails=snap.docs.filter(d=>d.data().fromEmail===curUser.email).map(d=>({id:d.id,...d.data()}));
+    renderSent();
+  });
+  onSnapshot(query(collection(db,'boards'),orderBy('createdAt','desc')),snap=>{
+    boards=snap.docs.map(d=>({id:d.id,...d.data()}));renderBoard();
+  });
+  onSnapshot(query(collection(db,'files'),orderBy('createdAt','desc')),snap=>{
+    files=snap.docs.map(d=>({id:d.id,...d.data()}));renderFiles();
+  });
+  onSnapshot(collection(db,'depts'),snap=>{
+    depts=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderDepts();updateDeptSelects();
+  });
+  if(curProfile?.role==='admin'){
+    onSnapshot(collection(db,'users'),snap=>{
+      accounts=snap.docs.map(d=>({id:d.id,...d.data()}));renderAccounts();
+    });
+  }
+}
+
+window.showPanel=function(name,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');el.classList.add('active');
+};
+
+function renderInbox(){
+  const filtered=mails.filter(m=>mailFil==='unread'?m.unread:true);
+  const unread=mails.filter(m=>m.unread).length;
+  document.getElementById('inbox-tbody').innerHTML=filtered.length===0
+    ?'<tr><td colspan="5"><div class="empty-state">받은 메일이 없습니다</div></td></tr>'
+    :filtered.map(m=>{const c=sel.inbox.has(m.id);
+      return`<tr class="mail-row${m.unread?' unread':''}${c?' selected':''}" onclick="rowClick(event,'inbox','${m.id}')"><td><input type="checkbox" ${c?'checked':''} onclick="cbClick(event,'inbox','${m.id}')"></td><td><span class="${m.unread?'unread-dot':'read-dot'}"></span></td><td class="mail-from">${esc(m.from||'')}</td><td><div class="mail-subj-text">${esc(m.subj||'')}</div></td><td class="mail-time">${fmtTime(m.createdAt)}</td></tr>`;
+    }).join('');
+  const ub=document.getElementById('ubadge');ub.textContent=unread;ub.style.display=unread?'':'none';
+  document.getElementById('inbox-stat').textContent=`전체 ${mails.length}개 · 읽지 않음 ${unread}개`;
+  document.getElementById('inbox-sub').textContent=`전체 ${mails.length}개 · 읽지 않음 ${unread}개`;
+  document.getElementById('inbox-del').style.display=sel.inbox.size?'':'none';
+  updCb('inbox',filtered.length);
+}
+function renderSent(){
+  document.getElementById('sent-tbody').innerHTML=sentMails.length===0
+    ?'<tr><td colspan="4"><div class="empty-state">보낸 메일이 없습니다</div></td></tr>'
+    :sentMails.map(m=>{const c=sel.sent.has(m.id);
+      return`<tr class="mail-row${c?' selected':''}" onclick="rowClick(event,'sent','${m.id}')"><td><input type="checkbox" ${c?'checked':''} onclick="cbClick(event,'sent','${m.id}')"></td><td class="mail-from">${esc(m.to||'')}</td><td><div class="mail-subj-text">${esc(m.subj||'')}</div></td><td class="mail-time">${fmtTime(m.createdAt)}</td></tr>`;
+    }).join('');
+  document.getElementById('sent-stat').textContent=`전체 ${sentMails.length}개`;
+  document.getElementById('sent-sub').textContent=`전체 ${sentMails.length}개`;
+  document.getElementById('sent-del').style.display=sel.sent.size?'':'none';
+  updCb('sent',sentMails.length);
+}
+function renderBoard(){
+  const isAdmin=curProfile?.role==='admin';
+  const filtered=boards.filter(b=>(boardFil==='all'||b.cat===boardFil)&&(!b.priv||isAdmin));
+  document.getElementById('board-tbody').innerHTML=filtered.length===0
+    ?'<tr><td colspan="6"><div class="empty-state">게시물이 없습니다</div></td></tr>'
+    :filtered.map(b=>{const c=sel.board.has(b.id);const cc=b.cat==='공지'?'cat-notice':b.cat==='뉴스'?'cat-news':'cat-qa';
+      return`<tr class="board-row${c?' selected':''}" onclick="rowClick(event,'board','${b.id}')"><td><input type="checkbox" ${c?'checked':''} onclick="cbClick(event,'board','${b.id}')"></td><td><span class="cat-badge ${cc}">${esc(b.cat)}</span></td><td style="max-width:340px"><div class="board-title-inner">${b.priv?'<span class="priv-badge">비공개</span>':''}${esc(b.title)}</div></td><td class="board-author">${esc(b.author||'')}</td><td class="board-date">${fmtTime(b.createdAt)}</td><td class="board-views">${b.views||0}</td></tr>`;
+    }).join('');
+  document.getElementById('board-stat').textContent=`전체 ${boards.length}개`;
+  document.getElementById('board-del').style.display=sel.board.size&&isAdmin?'':'none';
+  document.getElementById('board-priv').style.display=sel.board.size&&isAdmin?'':'none';
+  updCb('board',filtered.length);
+}
+function renderFiles(){
+  const filtered=files.filter(f=>filesFil==='all'||f.ext===filesFil);
+  document.getElementById('file-grid').innerHTML=filtered.length===0
+    ?'<div class="empty-state" style="grid-column:1/-1">파일이 없습니다</div>'
+    :filtered.map(f=>{const c=sel.files.has(f.id);
+      return`<div class="file-card${c?' selected':''}" onclick="fClick(event,'${f.id}')"><input class="cb" type="checkbox" ${c?'checked':''} onclick="cbClick(event,'files','${f.id}')"><div class="file-icon ext-${f.ext||'zip'}">${(f.ext||'?').toUpperCase()}</div><div class="file-name">${esc(f.name||'')}</div><div class="file-meta">${esc(f.size||'')} · ${fmtTime(f.createdAt)}</div></div>`;
+    }).join('');
+  document.getElementById('files-stat').textContent=`전체 ${files.length}개 파일`;
+  document.getElementById('files-del').style.display=sel.files.size?'':'none';
+  updCb('files',filtered.length);
+}
+function renderAccounts(){
+  const list=accounts.filter(a=>{
+    if(accFil!=='all'&&a.status!==accFil)return false;
+    if(accDeptFil!=='all'&&a.dept!==accDeptFil)return false;
+    if(accSearch){const q=accSearch.toLowerCase();if(!(a.name||'').toLowerCase().includes(q)&&!(a.email||'').toLowerCase().includes(q))return false;}
+    return true;
+  });
+  // 부서 필터 갱신
+  const deptFil=document.getElementById('acc-dept-fil');
+  if(deptFil){
+    const allDepts=[...new Set(accounts.map(a=>a.dept).filter(Boolean))];
+    const cur=deptFil.value;
+    deptFil.innerHTML='<option value="all">전체 부서</option>'+allDepts.map(d=>`<option value="${d}"${d===cur?' selected':''}>${d}</option>`).join('');
+  }
+  document.getElementById('acc-grid').innerHTML=list.length===0
+    ?'<div class="empty-state" style="grid-column:1/-1">계정이 없습니다</div>'
+    :list.map(a=>{
+      const sl=a.status==='active'?'활성':a.status==='pending'?'인증 대기':'비활성';
+      const sc=a.status==='active'?'s-active':a.status==='pending'?'s-pending':'s-inactive';
+      return`<div class="acc-card"><div class="acc-card-top"><div class="acc-avatar" style="background:${a.color||'#4f8ef7'}">${(a.name||'?')[0]}</div><div><div class="acc-name">${esc(a.name||'')}</div><div class="acc-dept">${esc(a.dept||'')} · ${esc(a.pos||'')}</div><div class="acc-email-t">${esc(a.email||'')}</div></div></div><div class="acc-badges"><span class="status-badge ${sc}">${sl}</span><span class="status-badge ${a.role==='admin'?'r-admin':'r-user'}">${a.role==='admin'?'관리자':'일반'}</span></div><div class="verify-badges"><span class="vbadge ${a.eV?'vok':'vno'}"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">${a.eV?'<path d="M20 6L9 17l-5-5"/>':'<path d="M18 6L6 18M6 6l12 12"/>'}</svg>이메일 ${a.eV?'인증':'미인증'}</span><span class="vbadge ${a.pV?'vok':'vno'}"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">${a.pV?'<path d="M20 6L9 17l-5-5"/>':'<path d="M18 6L6 18M6 6l12 12"/>'}</svg>전화 ${a.pV?'인증':'미인증'}</span></div>${a.phone?`<div style="font-size:11px;color:var(--hint)">${esc(a.phone)}</div>`:''}<div class="acc-actions"><button class="btn xs primary" onclick="openEditAcc('${a.id}')">✏️ 수정</button>${a.status!=='active'?`<button class="btn xs success" onclick="activateAcc('${a.id}')">활성화</button>`:''} ${a.status==='active'&&a.email!==curUser?.email?`<button class="btn xs" onclick="deactivateAcc('${a.id}')">비활성화</button>`:''} ${a.email!==curUser?.email?`<button class="btn xs danger" onclick="deleteAcc('${a.id}')">삭제</button>`:''}</div></div>`;
+    }).join('');
+  document.getElementById('acc-stat').textContent=`전체 ${accounts.length}명 · 활성 ${accounts.filter(a=>a.status==='active').length}명`;
+  document.getElementById('acc-sub').textContent=`전체 ${accounts.length}명의 계정`;
+}
+
+function updCb(type,total){
+  const n=sel[type].size;
+  const si=document.getElementById(type+'-si');if(si)si.textContent=n?n+'개 선택됨':'';
+  const cb=document.getElementById(type+'-cb');if(cb){cb.indeterminate=n>0&&n<total;cb.checked=total>0&&n===total;}
+}
+
+window.rowClick=function(e,type,id){
+  if(e.target.type==='checkbox')return;
+  const s=sel[type];s.has(id)?s.delete(id):s.add(id);
+  if(type==='inbox'){const m=mails.find(x=>x.id===id);if(m?.unread)updateDoc(doc(db,'mails',id),{unread:false});}
+  type==='inbox'?renderInbox():type==='sent'?renderSent():type==='board'?renderBoard():renderFiles();
+};
+window.fClick=function(e,id){if(e.target.type==='checkbox')return;const s=sel.files;s.has(id)?s.delete(id):s.add(id);renderFiles();};
+window.cbClick=function(e,type,id){
+  e.stopPropagation();const s=sel[type];e.target.checked?s.add(id):s.delete(id);
+  if(type==='inbox'&&e.target.checked){const m=mails.find(x=>x.id===id);if(m?.unread)updateDoc(doc(db,'mails',id),{unread:false});}
+  type==='inbox'?renderInbox():type==='sent'?renderSent():type==='board'?renderBoard():renderFiles();
+};
+window.toggleAll=function(type){
+  const cb=document.getElementById(type+'-cb');const s=sel[type];s.clear();
+  const arr=type==='inbox'?mails:type==='sent'?sentMails:type==='board'?boards:files;
+  if(cb.checked)arr.forEach(x=>s.add(x.id));
+  type==='inbox'?renderInbox():type==='sent'?renderSent():type==='board'?renderBoard():renderFiles();
+};
+
+window.deleteSelected=async function(type){
+  const s=sel[type];if(!s.size)return;
+  const colName=type==='inbox'||type==='sent'?'mails':type==='board'?'boards':'files';
+  await Promise.all([...s].map(id=>deleteDoc(doc(db,colName,id))));
+  s.clear();toast('삭제되었습니다.');
+};
+window.togglePrivate=async function(){
+  await Promise.all([...sel.board].map(id=>{const b=boards.find(x=>x.id===id);if(b)return updateDoc(doc(db,'boards',id),{priv:!b.priv});}));
+  toast('공개 상태가 변경되었습니다.');
+};
+
+window.activateAcc=async function(id){await updateDoc(doc(db,'users',id),{status:'active'});toast('계정이 활성화되었습니다.');};
+window.deactivateAcc=async function(id){await updateDoc(doc(db,'users',id),{status:'inactive'});toast('계정이 비활성화되었습니다.');};
+window.deleteAcc=async function(id){if(confirm('이 계정을 삭제하시겠습니까?')){await deleteDoc(doc(db,'users',id));toast('계정이 삭제되었습니다.');}};
+
+window.openModal=function(name){document.getElementById('modal-'+name).classList.add('open');};
+window.closeModal=function(name){document.getElementById('modal-'+name).classList.remove('open');if(name==='addAcc')resetWiz();};
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)window.closeModal(o.id.replace('modal-',''));}));
+
+window.sendMail=async function(){
+  const to=document.getElementById('m-to').value.trim();
+  const subj=document.getElementById('m-subj').value.trim();
+  if(!to||!subj){toast('받는 사람과 제목을 입력하세요.');return;}
+  await addDoc(collection(db,'mails'),{from:curProfile?.name||curUser.email,fromEmail:curUser.email,to,subj,body:document.getElementById('m-body').value,unread:true,createdAt:serverTimestamp()});
+  window.closeModal('compose');['m-to','m-subj','m-body'].forEach(id=>document.getElementById(id).value='');
+  toast('메일이 발송되었습니다.');
+};
+
+window.selCat=function(el,cat){curCat=cat;el.closest('.cat-row').querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');};
+window.submitPost=async function(){
+  const title=document.getElementById('p-title').value.trim();if(!title){toast('제목을 입력하세요.');return;}
+  const priv=document.querySelector('input[name="pv"]:checked').value==='private';
+  await addDoc(collection(db,'boards'),{cat:curCat,title,body:document.getElementById('p-body').value,author:curProfile?.name||curUser.email,priv,views:0,createdAt:serverTimestamp()});
+  window.closeModal('post');document.getElementById('p-title').value='';document.getElementById('p-body').value='';
+  toast('게시물이 등록되었습니다.');
+};
+
+window.submitFile=async function(){
+  const name=document.getElementById('u-name').value.trim();if(!name){toast('파일 이름을 입력하세요.');return;}
+  await addDoc(collection(db,'files'),{name,ext:document.getElementById('u-ext').value,size:document.getElementById('u-size').value||'-',uploader:curProfile?.name||curUser.email,createdAt:serverTimestamp()});
+  window.closeModal('upload');document.getElementById('u-name').value='';document.getElementById('u-size').value='';
+  toast('파일이 등록되었습니다.');
+};
+
+function resetWiz(){
+  wizStep=1;eVerified=false;pVerified=false;
+  ['ws1','ws2','ws3'].forEach((id,i)=>document.getElementById(id).style.display=i===0?'':'none');
+  [1,2,3].forEach(i=>{const s=document.getElementById('si'+i);s.className='step'+(i===1?' active':'');s.querySelector('.step-circle').textContent=i;});
+  document.getElementById('wiz-prev').style.display='none';document.getElementById('wiz-next').textContent='다음 →';
+  document.getElementById('e-otp-row').style.display='none';document.getElementById('p-otp-row').style.display='none';
+  document.getElementById('e-ok').classList.remove('show');document.getElementById('p-ok').classList.remove('show');
+  ['a-name','a-email','a-phone','a-pw'].forEach(id=>document.getElementById(id).value='');
+}
+function updWiz(step){
+  [1,2,3].forEach(i=>{const s=document.getElementById('si'+i);
+    if(i<step){s.className='step done';s.querySelector('.step-circle').innerHTML='<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';}
+    else if(i===step){s.className='step active';s.querySelector('.step-circle').textContent=i;}
+    else{s.className='step';s.querySelector('.step-circle').textContent=i;}
+  });
+}
+window.wizNext=function(){
+  if(wizStep===1){
+    if(!document.getElementById('a-name').value.trim()){toast('이름을 입력하세요.');return;}
+    const email=document.getElementById('a-email').value.trim();
+    if(!email||!/\S+@\S+\.\S+/.test(email)){toast('올바른 이메일을 입력하세요.');return;}
+    if(!document.getElementById('a-pw').value){toast('임시 비밀번호를 생성하세요.');return;}
+    wizStep=2;document.getElementById('ws1').style.display='none';document.getElementById('ws2').style.display='';
+    document.getElementById('wiz-prev').style.display='';updWiz(2);
+  }else if(wizStep===2){
+    if(!eVerified){toast('이메일 인증을 완료하세요.');return;}
+    wizStep=3;document.getElementById('ws2').style.display='none';document.getElementById('ws3').style.display='';
+    document.getElementById('wiz-next').textContent='계정 생성';updWiz(3);
+  }else{createAccount();}
+};
+window.wizPrev=function(){
+  if(wizStep===2){wizStep=1;document.getElementById('ws2').style.display='none';document.getElementById('ws1').style.display='';document.getElementById('wiz-prev').style.display='none';document.getElementById('wiz-next').textContent='다음 →';updWiz(1);}
+  else if(wizStep===3){wizStep=2;document.getElementById('ws3').style.display='none';document.getElementById('ws2').style.display='';document.getElementById('wiz-next').textContent='다음 →';updWiz(2);}
+};
+window.skipPhone=function(){pVerified=false;createAccount();};
+async function createAccount(){
+  const colors=['#4f8ef7','#34c98a','#e8a430','#e2534a','#9333ea','#0891b2','#059669'];
+  const email=document.getElementById('a-email').value.trim();
+  const pw=document.getElementById('a-pw').value;
+  try{
+    await createUserWithEmailAndPassword(auth,email,pw);
+    await addDoc(collection(db,'users'),{
+      name:document.getElementById('a-name').value.trim(),email,
+      dept:document.getElementById('a-dept').value,pos:document.getElementById('a-pos').value,
+      role:document.getElementById('a-role').value,phone:document.getElementById('a-phone').value.trim(),
+      status:'active',eV:true,pV:pVerified,color:colors[Math.floor(Math.random()*colors.length)],
+      createdAt:serverTimestamp()
+    });
+    await signInWithEmailAndPassword(auth,curUser.email,prompt('현재 비밀번호를 입력하세요 (재로그인 필요):'));
+  }catch(e){
+    await addDoc(collection(db,'users'),{
+      name:document.getElementById('a-name').value.trim(),email,
+      dept:document.getElementById('a-dept').value,pos:document.getElementById('a-pos').value,
+      role:document.getElementById('a-role').value,phone:document.getElementById('a-phone').value.trim(),
+      status:'active',eV:true,pV:pVerified,color:colors[Math.floor(Math.random()*colors.length)],
+      tempPw:pw,createdAt:serverTimestamp()
+    });
+  }
+  window.closeModal('addAcc');toast('계정이 생성되었습니다. 임시비밀번호: '+pw);
+}
+window.genPw=function(){const c='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';document.getElementById('a-pw').value=Array.from({length:10},()=>c[Math.floor(Math.random()*c.length)]).join('');};
+
+function makeOTP(){return String(Math.floor(100000+Math.random()*900000));}
+function startTimer(id,sec,cb){
+  clearInterval(timers[id]);let s=sec;const el=document.getElementById(id+'-timer');
+  if(el){el.classList.add('show');el.textContent=`재발송 가능: ${s}초 후`;}
+  timers[id]=setInterval(()=>{s--;if(s<=0){clearInterval(timers[id]);if(el)el.classList.remove('show');if(cb)cb();}else if(el)el.textContent=`재발송 가능: ${s}초 후`;},1000);
+}
+async function doSendOTP(toEmail,cb){
+  const code=makeOTP();
+  if(ejsReady){
+    try{await emailjs.send(EJS_SERVICE,EJS_TMPL,{to_email:toEmail,otp_code:code,from_name:'WorkNet'});toast('인증코드를 '+toEmail+'로 발송했습니다.');}
+    catch(e){toast('[EmailJS 오류]');return;}
+  }else{
+    console.log('%c[OTP] '+code+' → '+toEmail,'background:#1a2235;color:#34c98a;padding:4px 8px;border-radius:4px;font-size:14px;font-weight:bold');
+    toast('시뮬레이션: 인증코드 → 콘솔(F12) 확인');
+  }
+  if(cb)cb(code);
+}
+window.sendEmailOTP=function(){
+  const email=document.getElementById('a-email').value.trim();
+  document.getElementById('e-send-btn').disabled=true;
+  doSendOTP(email,c=>{otps.e=c;document.getElementById('e-otp-row').style.display='';});
+  startTimer('e',120,()=>document.getElementById('e-send-btn').disabled=false);
+};
+window.verifyEmailOTP=function(){
+  if(document.getElementById('e-otp').value===otps.e){eVerified=true;document.getElementById('e-ok').classList.add('show');document.getElementById('e-otp-row').style.display='none';toast('이메일 인증 완료');}
+  else{toast('인증코드가 올바르지 않습니다.');}
+};
+window.sendPhoneOTP=function(){
+  const ph=document.getElementById('a-phone').value.trim();if(!ph){toast('전화번호를 입력하세요.');return;}
+  const code=makeOTP();otps.p=code;document.getElementById('p-send-btn').disabled=true;document.getElementById('p-otp-row').style.display='';
+  console.log('%c[SMS] '+code+' → +82 '+ph,'background:#1a2235;color:#4f8ef7;padding:4px 8px;border-radius:4px;font-size:14px;font-weight:bold');
+  toast('SMS 시뮬레이션 — 콘솔(F12) 확인');
+  startTimer('p',120,()=>document.getElementById('p-send-btn').disabled=false);
+};
+window.verifyPhoneOTP=function(){
+  if(document.getElementById('p-otp').value===otps.p){pVerified=true;document.getElementById('p-ok').classList.add('show');document.getElementById('p-otp-row').style.display='none';toast('전화번호 인증 완료');}
+  else toast('인증코드가 올바르지 않습니다.');
+};
+
+window.sendPwReset=async function(){
+  const email=document.getElementById('fg-email').value.trim();if(!email){toast('이메일을 입력하세요.');return;}
+  try{await sendPasswordResetEmail(auth,email);document.getElementById('fg-ok').classList.add('show');toast('재설정 메일이 발송되었습니다.');}
+  catch(e){toast('발송 실패: 가입된 이메일인지 확인하세요.');}
+};
+
+window.sendRegOTP=function(){
+  const email=document.getElementById('r-email').value.trim();if(!email){toast('이메일을 입력하세요.');return;}
+  doSendOTP(email,c=>{otps.r=c;document.getElementById('r-otp-row').style.display='';});
+};
+window.verifyRegOTP=function(){
+  if(document.getElementById('r-otp').value===otps.r){rgVerified=true;document.getElementById('r-ok').classList.add('show');document.getElementById('r-otp-row').style.display='none';toast('이메일 인증 완료');}
+  else toast('인증코드가 올바르지 않습니다.');
+};
+window.submitReg=async function(){
+  if(!rgVerified){toast('이메일 인증을 먼저 완료하세요.');return;}
+  const name=document.getElementById('r-name').value.trim();
+  const email=document.getElementById('r-email').value.trim();
+  const pw=document.getElementById('r-pw').value;
+  const dept=document.getElementById('r-dept').value;
+  if(!name||!pw){toast('이름과 비밀번호를 입력하세요.');return;}
+  if(pw.length<6){toast('비밀번호는 6자 이상이어야 합니다.');return;}
+  try{
+    await createUserWithEmailAndPassword(auth,email,pw);
+    const colors=['#4f8ef7','#34c98a','#e8a430','#e2534a','#9333ea'];
+    await addDoc(collection(db,'users'),{name,email,dept,pos:'사원',role:'user',phone:'',status:'pending',eV:true,pV:false,color:colors[Math.floor(Math.random()*colors.length)],createdAt:serverTimestamp()});
+    await signOut(auth);
+    window.closeModal('register');toast('가입 요청 완료! 관리자 승인을 기다려주세요.');
+  }catch(e){
+    toast(e.code==='auth/email-already-in-use'?'이미 사용 중인 이메일입니다.':'가입 실패: '+e.message);
+  }
+};
+
+// 부서 렌더
+function renderDepts(){
+  const grid=document.getElementById('dept-grid');
+  if(!grid)return;
+  const defaultDepts=['개발팀','인사팀','영업팀','총무팀','기획팀','법무팀','마케팅팀','IT지원팀','경영지원'];
+  const allDepts=[...new Set([...defaultDepts,...depts.map(d=>d.name)])];
+  grid.innerHTML=allDepts.map(name=>{
+    const d=depts.find(x=>x.name===name);
+    const memberCount=accounts.filter(a=>a.dept===name).length;
+    const isCustom=!!d;
+    return`<div class="acc-card"><div class="acc-card-top"><div class="acc-avatar" style="background:#4f8ef7;width:42px;height:42px;font-size:18px">🏢</div><div><div class="acc-name">${esc(name)}</div><div class="acc-dept">${memberCount}명</div>${d?.desc?`<div style="font-size:11px;color:var(--muted)">${esc(d.desc)}</div>`:''}</div></div><div class="acc-actions">${isCustom?`<button class="btn xs danger" onclick="deleteDept('${d.id}','${name}')">삭제</button>`:''}</div></div>`;
+  }).join('');
+  const stat=document.getElementById('dept-stat');
+  if(stat)stat.textContent=`전체 ${allDepts.length}개 부서`;
+  const sub=document.getElementById('dept-sub');
+  if(sub)sub.textContent=`전체 ${allDepts.length}개 부서`;
+}
+
+// 부서 select 업데이트
+function updateDeptSelects(){
+  const defaultDepts=['개발팀','인사팀','영업팀','총무팀','기획팀','법무팀','마케팅팀','IT지원팀','경영지원'];
+  const allDepts=[...new Set([...defaultDepts,...depts.map(d=>d.name)])];
+  const opts=allDepts.map(d=>`<option>${d}</option>`).join('');
+  ['a-dept','edit-dept'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.innerHTML=opts;
+  });
+}
+
+// 부서 만들기
+window.submitDept=async function(){
+  const name=document.getElementById('dept-name').value.trim();
+  if(!name){toast('부서 이름을 입력하세요.');return;}
+  const existing=['개발팀','인사팀','영업팀','총무팀','기획팀','법무팀','마케팅팀','IT지원팀','경영지원',...depts.map(d=>d.name)];
+  if(existing.includes(name)){toast('이미 존재하는 부서입니다.');return;}
+  await addDoc(collection(db,'depts'),{name,desc:document.getElementById('dept-desc').value.trim(),createdAt:serverTimestamp()});
+  window.closeModal('addDept');document.getElementById('dept-name').value='';document.getElementById('dept-desc').value='';
+  toast(`'${name}' 부서가 생성되었습니다.`);
+};
+
+// 부서 삭제
+window.deleteDept=async function(id,name){
+  if(!confirm(`'${name}' 부서를 삭제하시겠습니까?\n소속 인원의 부서는 변경되지 않습니다.`))return;
+  await deleteDoc(doc(db,'depts',id));toast('부서가 삭제되었습니다.');
+};
+
+// 계정 수정 모달 열기
+window.openEditAcc=function(id){
+  const a=accounts.find(x=>x.id===id);if(!a)return;
+  document.getElementById('edit-acc-id').value=id;
+  document.getElementById('edit-name').value=a.name||'';
+  document.getElementById('edit-pos').value=a.pos||'사원';
+  document.getElementById('edit-role').value=a.role||'user';
+  updateDeptSelects();
+  setTimeout(()=>{document.getElementById('edit-dept').value=a.dept||'';},50);
+  window.openModal('editAcc');
+};
+
+// 계정 수정 저장
+window.saveEditAcc=async function(){
+  const id=document.getElementById('edit-acc-id').value;
+  const name=document.getElementById('edit-name').value.trim();
+  const pos=document.getElementById('edit-pos').value;
+  const dept=document.getElementById('edit-dept').value;
+  const role=document.getElementById('edit-role').value;
+  if(!name){toast('이름을 입력하세요.');return;}
+  await updateDoc(doc(db,'users',id),{name,pos,dept,role});
+  // 현재 로그인 계정이면 사이드바도 업데이트
+  if(curUser&&accounts.find(a=>a.id===id)?.email===curUser.email){
+    document.getElementById('s-name').textContent=name;
+    document.getElementById('s-role').textContent=dept+' · '+pos;
+    document.getElementById('s-av').textContent=name[0];
+  }
+  window.closeModal('editAcc');toast('계정 정보가 수정되었습니다.');
+};
+
+window.fmtPhone=function(el){let v=el.value.replace(/\D/g,'');if(v.length>3&&v.length<=7)v=v.slice(0,3)+'-'+v.slice(3);else if(v.length>7)v=v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7,11);el.value=v;};
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtTime(ts){
+  if(!ts)return '';
+  const d=ts.toDate?ts.toDate():new Date(ts);
+  const now=new Date();const diff=now-d;
+  if(diff<60000)return '방금';if(diff<3600000)return Math.floor(diff/60000)+'분 전';
+  if(diff<86400000)return Math.floor(diff/3600000)+'시간 전';
+  if(diff<604800000)return Math.floor(diff/86400000)+'일 전';
+  return`${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
+let tT;
+window.toast=function(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),3200);};
+function toast(msg){window.toast(msg);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));});
+</script>
+</body>
+</html>
