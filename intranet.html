@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">  
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WorkNet — 사내 인트라넷</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--nav:#1a2235;--nav-hover:#243047;--nav-active:#2d3d5c;--accent:#4f8ef7;--accent2:#34c98a;--danger:#e2534a;--warn:#e8a430;--bg:#f0f2f5;--card:#fff;--border:#e2e4e9;--text:#1a1d23;--muted:#6b7280;--hint:#9ca3af;--bg2:#f6f8fa}
@@ -23,8 +24,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .login-btn{width:100%;padding:11px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
 .login-btn:hover{background:#3d7de8}
 .login-error{font-size:12px;color:var(--danger);margin-top:8px;display:none;text-align:center}
-.login-footer{margin-top:18px;text-align:center;font-size:12px;color:var(--muted)}
-.login-footer a{color:var(--accent);cursor:pointer;text-decoration:underline}
 .shell{display:flex;flex:1;overflow:hidden}
 .sidebar{width:210px;background:var(--nav);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
 .logo{padding:20px 16px 14px;color:#fff;font-size:16px;font-weight:700;border-bottom:1px solid rgba(255,255,255,.08)}.logo span{color:var(--accent);font-size:11px;display:block;margin-top:2px;font-weight:400}
@@ -116,8 +115,6 @@ textarea.form-input{resize:vertical;min-height:90px}
 .otp-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
 .verify-ok{color:var(--accent2);font-size:12px;font-weight:500;display:none;align-items:center;gap:4px}.verify-ok.show{display:flex}
 .timer-txt{font-size:11px;color:var(--muted);display:none}.timer-txt.show{display:block}
-.phone-prefix{padding:8px 10px;border:1px solid var(--border);border-right:0;border-radius:7px 0 0 7px;background:var(--bg2);font-size:13px;color:var(--muted);flex-shrink:0}
-.phone-wrap{display:flex;flex:1}.phone-wrap .form-input{border-radius:0 7px 7px 0}
 .steps{display:flex;margin-bottom:4px}
 .step{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative}
 .step:not(:last-child)::after{content:'';position:absolute;top:13px;left:50%;width:100%;height:1px;background:var(--border);z-index:0}
@@ -137,6 +134,7 @@ textarea.form-input{resize:vertical;min-height:90px}
 </style>
 </head>
 <body>
+
 <div id="loading-screen">
   <div class="spinner-big"></div>
   <div class="loading-text">WorkNet 로딩 중...</div>
@@ -151,8 +149,10 @@ textarea.form-input{resize:vertical;min-height:90px}
     <label class="login-label">비밀번호</label>
     <input class="login-input" id="lpw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
     <div class="login-error" id="lerr"></div>
-    <button class="login-btn" id="login-btn" onclick="doLogin()">로그인</button>
-    <div class="login-footer"><a onclick="openModal('register')">회원가입 요청</a> &nbsp;·&nbsp; <a onclick="openModal('forgot')">비밀번호 찾기</a></div>
+    <div style="margin-bottom:14px;display:flex;justify-content:center">
+      <div class="cf-turnstile" id="login-turnstile" data-sitekey="0x4AAAAAAC_OHpbj8VwV_fiL" data-theme="light" data-callback="onLoginVerified" data-expired-callback="onLoginExpired"></div>
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()" disabled style="opacity:.4;cursor:default">로그인</button>
   </div>
 </div>
 
@@ -209,6 +209,7 @@ textarea.form-input{resize:vertical;min-height:90px}
     </div>
   </div>
 </nav>
+
 <div class="main">
 
 <div id="panel-inbox" class="panel active">
@@ -248,7 +249,7 @@ textarea.form-input{resize:vertical;min-height:90px}
     <input type="checkbox" id="board-cb" onchange="toggleAll('board')">
     <label for="board-cb" style="font-size:13px;cursor:pointer;color:var(--muted)">전체선택</label>
     <span class="sel-info" id="board-si"></span><div class="spacer"></div>
-    <button class="btn sm danger" id="board-del" style="display:none" onclick="deleteSelected('board')">삭제</button>
+    <button class="btn sm danger" id="board-del" style="display:none" onclick="deleteSelected('board')">삭제(관리자)</button>
     <button class="btn sm" id="board-priv" style="display:none" onclick="togglePrivate()">비공개 처리</button>
     <select class="toolbar-select" onchange="boardFil=this.value;renderBoard()"><option value="all">전체</option><option value="공지">공지</option><option value="뉴스">뉴스</option><option value="Q&A">Q&A</option></select>
   </div>
@@ -285,14 +286,11 @@ textarea.form-input{resize:vertical;min-height:90px}
   <div class="statusbar"><span id="acc-stat"></span><div class="spacer"></div><span class="admin-pill">관리자 전용</span></div>
 </div>
 
-<!-- 부서 관리 패널 -->
 <div id="panel-depts" class="panel">
   <div class="topbar"><div class="topbar-info"><div class="topbar-title">부서 관리</div><div class="topbar-sub" id="dept-sub"></div></div><div class="spacer"></div>
     <button class="btn primary" onclick="openModal('addDept')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>부서 만들기</button>
   </div>
-  <div class="accounts-body">
-    <div class="acc-grid" id="dept-grid"></div>
-  </div>
+  <div class="accounts-body"><div class="acc-grid" id="dept-grid"></div></div>
   <div class="statusbar"><span id="dept-stat"></span><div class="spacer"></div><span class="admin-pill">관리자 전용</span></div>
 </div>
 
@@ -334,8 +332,9 @@ textarea.form-input{resize:vertical;min-height:90px}
   </div>
 </div>
 
+<!-- 계정 추가 (2단계: 기본정보 + 이메일 인증만) -->
 <div class="modal-overlay" id="modal-addAcc">
-  <div class="modal"><div class="modal-head"><h3>새 계정 추가</h3><button class="modal-close" onclick="closeModal('addAcc')">×</button></div>
+  <div class="modal"><div class="modal-head"><h3>새 계정 만들기</h3><button class="modal-close" onclick="closeModal('addAcc')">×</button></div>
     <div class="modal-body">
       <div class="steps">
         <div class="step active" id="si1"><div class="step-circle">1</div><div class="step-label">기본 정보</div></div>
@@ -345,14 +344,19 @@ textarea.form-input{resize:vertical;min-height:90px}
         <div class="sec-div" style="margin-bottom:12px">기본 정보</div>
         <div class="form-row"><label>이름</label><input class="form-input" id="a-name" placeholder="홍길동"></div>
         <div class="form-row" style="margin-top:10px"><label>이메일</label><input class="form-input" id="a-email" type="email" placeholder="hong@company.com"></div>
-        <div class="form-row" style="margin-top:10px"><label>부서</label><select class="form-select" id="a-dept"><option>개발팀</option><option>인사팀</option><option>영업팀</option><option>총무팀</option><option>기획팀</option><option>법무팀</option><option>마케팅팀</option><option>IT지원팀</option><option>경영지원</option></select></div>
+        <div class="form-row" style="margin-top:10px"><label>부서</label><select class="form-select" id="a-dept"></select></div>
         <div class="form-row" style="margin-top:10px"><label>직급</label><select class="form-select" id="a-pos"><option>사원</option><option>대리</option><option>과장</option><option>차장</option><option>부장</option><option>이사</option></select></div>
         <div class="form-row" style="margin-top:10px"><label>권한</label><select class="form-select" id="a-role"><option value="user">일반 사용자</option><option value="admin">관리자</option></select></div>
         <div class="form-row" style="margin-top:10px"><label>임시 비밀번호</label><input class="form-input" id="a-pw" readonly style="background:var(--bg2);font-family:monospace"><button class="btn sm" onclick="genPw()" style="margin-left:8px;flex-shrink:0">생성</button></div>
+        <div style="margin-top:14px;display:flex;justify-content:center">
+          <div class="cf-turnstile" id="acc-turnstile" data-sitekey="0x4AAAAAAC_OHpbj8VwV_fiL" data-theme="light" data-callback="onAccVerified" data-expired-callback="onAccExpired"></div>
+        </div>
       </div>
       <div id="ws2" style="display:none">
         <div class="sec-div" style="margin-bottom:12px">이메일 인증</div>
-        <div class="alert alert-info" style="margin-bottom:12px">이메일로 6자리 인증코드를 발송합니다. EmailJS 미설정 시 콘솔(F12)에서 확인.</div>
+        <div class="alert alert-info" style="margin-bottom:12px">
+          <strong id="a-email-display"></strong> 으로 6자리 인증코드를 발송합니다.
+        </div>
         <div class="form-row"><label>코드 발송</label><button class="btn sm primary" id="e-send-btn" onclick="sendEmailOTP()">코드 발송</button></div>
         <div class="form-row" id="e-otp-row" style="margin-top:10px;display:none">
           <label>인증코드</label>
@@ -361,7 +365,6 @@ textarea.form-input{resize:vertical;min-height:90px}
         <div class="timer-txt" id="e-timer" style="margin-left:88px;margin-top:6px"></div>
         <div class="verify-ok" id="e-ok" style="margin-left:88px;margin-top:8px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>이메일 인증 완료</div>
       </div>
-  </div>
     </div>
     <div class="modal-footer">
       <button class="btn sm" id="wiz-prev" onclick="wizPrev()" style="display:none">← 이전</button>
@@ -372,62 +375,21 @@ textarea.form-input{resize:vertical;min-height:90px}
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-forgot">
-  <div class="modal sm"><div class="modal-head"><h3>비밀번호 재설정</h3><button class="modal-close" onclick="closeModal('forgot')">×</button></div>
-    <div class="modal-body">
-      <div class="alert alert-info">가입된 이메일로 비밀번호 재설정 링크를 보내드립니다.</div>
-      <div class="form-row"><label>이메일</label><input class="form-input" id="fg-email" type="email" placeholder="your@company.com"></div>
-      <div class="verify-ok" id="fg-ok" style="margin-left:88px;margin-top:4px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>재설정 메일이 발송되었습니다.</div>
-    </div>
-    <div class="modal-footer"><button class="btn sm" onclick="closeModal('forgot')">닫기</button><button class="btn sm primary" onclick="sendPwReset()">재설정 메일 발송</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-register">
-  <div class="modal sm"><div class="modal-head"><h3>회원가입 요청</h3><button class="modal-close" onclick="closeModal('register')">×</button></div>
-    <div class="modal-body">
-      <div class="alert alert-warn">관리자 승인 후 계정이 활성화됩니다.</div>
-      <div class="form-row"><label>이름</label><input class="form-input" id="r-name" placeholder="홍길동"></div>
-      <div class="form-row"><label>이메일</label>
-        <div class="verify-row"><input class="form-input" id="r-email" type="email" placeholder="your@company.com"><button class="btn sm primary" onclick="sendRegOTP()">인증코드</button></div>
-      </div>
-      <div class="form-row" id="r-otp-row" style="display:none">
-        <label>인증코드</label>
-        <div class="otp-row"><input class="otp-input" id="r-otp" maxlength="6" placeholder="000000" oninput="this.value=this.value.replace(/\D/g,'')"><button class="btn sm primary" onclick="verifyRegOTP()">확인</button></div>
-      </div>
-      <div class="verify-ok" id="r-ok" style="margin-left:88px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>이메일 인증 완료</div>
-      <div class="form-row"><label>부서</label><select class="form-select" id="r-dept"><option>개발팀</option><option>인사팀</option><option>영업팀</option><option>총무팀</option></select></div>
-      <div class="form-row"><label>비밀번호</label><input class="form-input" id="r-pw" type="password" placeholder="6자 이상"></div>
-    </div>
-    <div class="modal-footer"><button class="btn sm" onclick="closeModal('register')">취소</button><button class="btn sm primary" onclick="submitReg()">가입 요청</button></div>
-  </div>
-</div>
-
-<!-- 계정 편집 모달 -->
+<!-- 계정 수정 -->
 <div class="modal-overlay" id="modal-editAcc">
   <div class="modal sm"><div class="modal-head"><h3>계정 정보 수정</h3><button class="modal-close" onclick="closeModal('editAcc')">×</button></div>
     <div class="modal-body">
       <input type="hidden" id="edit-acc-id">
       <div class="form-row"><label>이름</label><input class="form-input" id="edit-name" placeholder="이름"></div>
-      <div class="form-row" style="margin-top:10px"><label>직급</label>
-        <select class="form-select" id="edit-pos">
-          <option>사원</option><option>대리</option><option>과장</option><option>차장</option><option>부장</option><option>이사</option>
-        </select>
-      </div>
-      <div class="form-row" style="margin-top:10px"><label>부서</label>
-        <select class="form-select" id="edit-dept"></select>
-      </div>
-      <div class="form-row" style="margin-top:10px"><label>권한</label>
-        <select class="form-select" id="edit-role">
-          <option value="user">일반 사용자</option><option value="admin">관리자</option>
-        </select>
-      </div>
+      <div class="form-row" style="margin-top:10px"><label>직급</label><select class="form-select" id="edit-pos"><option>사원</option><option>대리</option><option>과장</option><option>차장</option><option>부장</option><option>이사</option></select></div>
+      <div class="form-row" style="margin-top:10px"><label>부서</label><select class="form-select" id="edit-dept"></select></div>
+      <div class="form-row" style="margin-top:10px"><label>권한</label><select class="form-select" id="edit-role"><option value="user">일반 사용자</option><option value="admin">관리자</option></select></div>
     </div>
     <div class="modal-footer"><button class="btn sm" onclick="closeModal('editAcc')">취소</button><button class="btn sm primary" onclick="saveEditAcc()">저장</button></div>
   </div>
 </div>
 
-<!-- 부서 만들기 모달 -->
+<!-- 부서 만들기 -->
 <div class="modal-overlay" id="modal-addDept">
   <div class="modal sm"><div class="modal-head"><h3>부서 만들기</h3><button class="modal-close" onclick="closeModal('addDept')">×</button></div>
     <div class="modal-body">
@@ -442,7 +404,7 @@ textarea.form-input{resize:vertical;min-height:90px}
 
 <script type="module">
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import{getFirestore,collection,addDoc,getDocs,deleteDoc,doc,updateDoc,query,orderBy,onSnapshot,serverTimestamp,where,getDoc}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import{getFirestore,collection,addDoc,getDocs,deleteDoc,doc,updateDoc,query,orderBy,onSnapshot,serverTimestamp,where}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,sendPasswordResetEmail}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const app=initializeApp({
@@ -456,33 +418,29 @@ const app=initializeApp({
 const db=getFirestore(app);
 const auth=getAuth(app);
 
+/* EmailJS */
 const EJS_KEY='oRR1-a3U-4KPf3kjL',EJS_SERVICE='service_slihljp',EJS_TMPL='template_9qktxfm';
 let ejsReady=false;
-try{emailjs.init({publicKey:EJS_KEY});ejsReady=(EJS_KEY!=='YOUR_PUBLIC_KEY');}catch(e){}
+try{emailjs.init({publicKey:EJS_KEY});ejsReady=true;}catch(e){}
 
+/* STATE */
 let curUser=null,curProfile=null;
-let mails=[],sentMails=[],boards=[],files=[],accounts=[];
+let mails=[],sentMails=[],boards=[],files=[],accounts=[],depts=[];
 const sel={inbox:new Set(),sent:new Set(),board:new Set(),files:new Set()};
-let mailFil='all',boardFil='all',filesFil='all',accFil='all',accSearch='';
-let curCat='공지',wizStep=1,eVerified=false,pVerified=false,rgVerified=false;
-let otps={e:'',p:'',r:''};let timers={};
+let mailFil='all',boardFil='all',filesFil='all',accFil='all',accDeptFil='all',accSearch='';
+let curCat='공지',wizStep=1,eVerified=false,rgVerified=false;
+let otps={e:'',r:''};let timers={};
 
-let accDeptFil='all';
-
+/* AUTH */
 onAuthStateChanged(auth,async user=>{
   document.getElementById('loading-screen').style.display='none';
   if(user){
     curUser=user;
     const snap=await getDocs(query(collection(db,'users'),where('email','==',user.email)));
-    if(!snap.empty){
-      curProfile={id:snap.docs[0].id,...snap.docs[0].data()};
-    }else{
-      const ref=await addDoc(collection(db,'users'),{
-        name:'관리자',dept:'IT지원팀',pos:'부장',role:'admin',
-        email:user.email,phone:'',status:'active',eV:true,pV:false,
-        color:'#4f8ef7',createdAt:serverTimestamp()
-      });
-      curProfile={id:ref.id,name:'관리자',dept:'IT지원팀',pos:'부장',role:'admin',email:user.email,phone:'',status:'active',eV:true,pV:false,color:'#4f8ef7'};
+    if(!snap.empty){curProfile={id:snap.docs[0].id,...snap.docs[0].data()};}
+    else{
+      const ref=await addDoc(collection(db,'users'),{name:'관리자',dept:'IT지원팀',pos:'부장',role:'admin',email:user.email,phone:'',status:'active',eV:true,color:'#4f8ef7',createdAt:serverTimestamp()});
+      curProfile={id:ref.id,name:'관리자',dept:'IT지원팀',pos:'부장',role:'admin',email:user.email,status:'active',eV:true,color:'#4f8ef7'};
     }
     showApp();loadAll();
   }else{
@@ -492,23 +450,43 @@ onAuthStateChanged(auth,async user=>{
   }
 });
 
+/* Turnstile 콜백 */
+let turnstileToken = '';
+window.onLoginVerified = function(token){
+  turnstileToken = token;
+  const btn = document.getElementById('login-btn');
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+};
+window.onLoginExpired = function(){
+  turnstileToken = '';
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.style.opacity = '.4';
+  btn.style.cursor = 'default';
+};
+
+let accTurnstileToken = '';
+window.onAccVerified = function(token){ accTurnstileToken = token; };
+window.onAccExpired = function(){ accTurnstileToken = ''; };
+
 window.doLogin=async function(){
+  if(!turnstileToken){
+    const err=document.getElementById('lerr');
+    err.textContent='로봇 인증을 완료해주세요.';err.style.display='block';
+    return;
+  }
   const email=document.getElementById('lid').value.trim();
   const pw=document.getElementById('lpw').value;
   const btn=document.getElementById('login-btn');
   const err=document.getElementById('lerr');
   if(!email||!pw){err.textContent='이메일과 비밀번호를 입력하세요.';err.style.display='block';return;}
   btn.textContent='로그인 중...';btn.disabled=true;
-  try{
-    await signInWithEmailAndPassword(auth,email,pw);
-    err.style.display='none';
-  }catch(e){
-    err.textContent=e.code==='auth/invalid-credential'?'이메일 또는 비밀번호가 올바르지 않습니다.':'로그인 실패: '+e.message;
-    err.style.display='block';
-  }
+  try{await signInWithEmailAndPassword(auth,email,pw);err.style.display='none';}
+  catch(e){err.textContent=e.code==='auth/invalid-credential'?'이메일 또는 비밀번호가 올바르지 않습니다.':'로그인 실패: '+e.message;err.style.display='block';}
   btn.textContent='로그인';btn.disabled=false;
 };
-
 window.doLogout=async function(){await signOut(auth);toast('로그아웃되었습니다.');};
 
 function showApp(){
@@ -523,8 +501,6 @@ function showApp(){
   document.getElementById('admin-nav').style.display=isAdmin?'':'none';
   document.getElementById('board-admin-pill').style.display=isAdmin?'':'none';
 }
-
-let depts=[];
 
 function loadAll(){
   onSnapshot(query(collection(db,'mails'),orderBy('createdAt','desc')),snap=>{
@@ -558,6 +534,7 @@ window.showPanel=function(name,el){
   document.getElementById('panel-'+name).classList.add('active');el.classList.add('active');
 };
 
+/* RENDER */
 function renderInbox(){
   const filtered=mails.filter(m=>mailFil==='unread'?m.unread:true);
   const unread=mails.filter(m=>m.unread).length;
@@ -614,22 +591,39 @@ function renderAccounts(){
     if(accSearch){const q=accSearch.toLowerCase();if(!(a.name||'').toLowerCase().includes(q)&&!(a.email||'').toLowerCase().includes(q))return false;}
     return true;
   });
-  // 부서 필터 갱신
   const deptFil=document.getElementById('acc-dept-fil');
   if(deptFil){
-    const allDepts=[...new Set(accounts.map(a=>a.dept).filter(Boolean))];
+    const allD=[...new Set(accounts.map(a=>a.dept).filter(Boolean))];
     const cur=deptFil.value;
-    deptFil.innerHTML='<option value="all">전체 부서</option>'+allDepts.map(d=>`<option value="${d}"${d===cur?' selected':''}>${d}</option>`).join('');
+    deptFil.innerHTML='<option value="all">전체 부서</option>'+allD.map(d=>`<option value="${d}"${d===cur?' selected':''}>${d}</option>`).join('');
   }
   document.getElementById('acc-grid').innerHTML=list.length===0
     ?'<div class="empty-state" style="grid-column:1/-1">계정이 없습니다</div>'
     :list.map(a=>{
       const sl=a.status==='active'?'활성':a.status==='pending'?'인증 대기':'비활성';
       const sc=a.status==='active'?'s-active':a.status==='pending'?'s-pending':'s-inactive';
-      return`<div class="acc-card"><div class="acc-card-top"><div class="acc-avatar" style="background:${a.color||'#4f8ef7'}">${(a.name||'?')[0]}</div><div><div class="acc-name">${esc(a.name||'')}</div><div class="acc-dept">${esc(a.dept||'')} · ${esc(a.pos||'')}</div><div class="acc-email-t">${esc(a.email||'')}</div></div></div><div class="acc-badges"><span class="status-badge ${sc}">${sl}</span><span class="status-badge ${a.role==='admin'?'r-admin':'r-user'}">${a.role==='admin'?'관리자':'일반'}</span></div><div class="verify-badges"><span class="vbadge ${a.eV?'vok':'vno'}"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">${a.eV?'<path d="M20 6L9 17l-5-5"/>':'<path d="M18 6L6 18M6 6l12 12"/>'}</svg>이메일 ${a.eV?'인증':'미인증'}</span><span class="vbadge ${a.pV?'vok':'vno'}"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">${a.pV?'<path d="M20 6L9 17l-5-5"/>':'<path d="M18 6L6 18M6 6l12 12"/>'}</svg>전화 ${a.pV?'인증':'미인증'}</span></div>${a.phone?`<div style="font-size:11px;color:var(--hint)">${esc(a.phone)}</div>`:''}<div class="acc-actions"><button class="btn xs primary" onclick="openEditAcc('${a.id}')">✏️ 수정</button>${a.status!=='active'?`<button class="btn xs success" onclick="activateAcc('${a.id}')">활성화</button>`:''} ${a.status==='active'&&a.email!==curUser?.email?`<button class="btn xs" onclick="deactivateAcc('${a.id}')">비활성화</button>`:''} ${a.email!==curUser?.email?`<button class="btn xs danger" onclick="deleteAcc('${a.id}')">삭제</button>`:''}</div></div>`;
+      return`<div class="acc-card"><div class="acc-card-top"><div class="acc-avatar" style="background:${a.color||'#4f8ef7'}">${(a.name||'?')[0]}</div><div><div class="acc-name">${esc(a.name||'')}</div><div class="acc-dept">${esc(a.dept||'')} · ${esc(a.pos||'')}</div><div class="acc-email-t">${esc(a.email||'')}</div></div></div><div class="acc-badges"><span class="status-badge ${sc}">${sl}</span><span class="status-badge ${a.role==='admin'?'r-admin':'r-user'}">${a.role==='admin'?'관리자':'일반'}</span></div><div class="verify-badges"><span class="vbadge ${a.eV?'vok':'vno'}"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">${a.eV?'<path d="M20 6L9 17l-5-5"/>':'<path d="M18 6L6 18M6 6l12 12"/>'}</svg>이메일 ${a.eV?'인증':'미인증'}</span></div>${a.phone?`<div style="font-size:11px;color:var(--hint)">${esc(a.phone)}</div>`:''}<div class="acc-actions"><button class="btn xs primary" onclick="openEditAcc('${a.id}')">✏️ 수정</button>${a.status!=='active'?`<button class="btn xs success" onclick="activateAcc('${a.id}')">활성화</button>`:''} ${a.status==='active'&&a.email!==curUser?.email?`<button class="btn xs" onclick="deactivateAcc('${a.id}')">비활성화</button>`:''} ${a.email!==curUser?.email?`<button class="btn xs danger" onclick="deleteAcc('${a.id}')">삭제</button>`:''}</div></div>`;
     }).join('');
   document.getElementById('acc-stat').textContent=`전체 ${accounts.length}명 · 활성 ${accounts.filter(a=>a.status==='active').length}명`;
   document.getElementById('acc-sub').textContent=`전체 ${accounts.length}명의 계정`;
+}
+function renderDepts(){
+  const grid=document.getElementById('dept-grid');if(!grid)return;
+  const defaultDepts=['개발팀','인사팀','영업팀','총무팀','기획팀','법무팀','마케팅팀','IT지원팀','경영지원'];
+  const allDepts=[...new Set([...defaultDepts,...depts.map(d=>d.name)])];
+  grid.innerHTML=allDepts.map(name=>{
+    const d=depts.find(x=>x.name===name);
+    const cnt=accounts.filter(a=>a.dept===name).length;
+    return`<div class="acc-card"><div class="acc-card-top"><div class="acc-avatar" style="background:#4f8ef7;font-size:18px">🏢</div><div><div class="acc-name">${esc(name)}</div><div class="acc-dept">${cnt}명</div>${d?.desc?`<div style="font-size:11px;color:var(--muted)">${esc(d.desc)}</div>`:''}</div></div><div class="acc-actions">${d?`<button class="btn xs danger" onclick="deleteDept('${d.id}','${name}')">삭제</button>`:''}</div></div>`;
+  }).join('');
+  const stat=document.getElementById('dept-stat');if(stat)stat.textContent=`전체 ${allDepts.length}개 부서`;
+  const sub=document.getElementById('dept-sub');if(sub)sub.textContent=`전체 ${allDepts.length}개 부서`;
+}
+function updateDeptSelects(){
+  const defaultDepts=['개발팀','인사팀','영업팀','총무팀','기획팀','법무팀','마케팅팀','IT지원팀','경영지원'];
+  const allDepts=[...new Set([...defaultDepts,...depts.map(d=>d.name)])];
+  const opts=allDepts.map(d=>`<option>${d}</option>`).join('');
+  ['a-dept','edit-dept'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
 }
 
 function updCb(type,total){
@@ -638,6 +632,7 @@ function updCb(type,total){
   const cb=document.getElementById(type+'-cb');if(cb){cb.indeterminate=n>0&&n<total;cb.checked=total>0&&n===total;}
 }
 
+/* SELECTION */
 window.rowClick=function(e,type,id){
   if(e.target.type==='checkbox')return;
   const s=sel[type];s.has(id)?s.delete(id):s.add(id);
@@ -657,25 +652,69 @@ window.toggleAll=function(type){
   type==='inbox'?renderInbox():type==='sent'?renderSent():type==='board'?renderBoard():renderFiles();
 };
 
+/* DELETE */
 window.deleteSelected=async function(type){
   const s=sel[type];if(!s.size)return;
-  const colName=type==='inbox'||type==='sent'?'mails':type==='board'?'boards':'files';
-  await Promise.all([...s].map(id=>deleteDoc(doc(db,colName,id))));
-  s.clear();toast('삭제되었습니다.');
+  const col=type==='inbox'||type==='sent'?'mails':type==='board'?'boards':'files';
+  const n=s.size;await Promise.all([...s].map(id=>deleteDoc(doc(db,col,id))));
+  s.clear();toast(n+'개 항목이 삭제되었습니다.');
 };
 window.togglePrivate=async function(){
   await Promise.all([...sel.board].map(id=>{const b=boards.find(x=>x.id===id);if(b)return updateDoc(doc(db,'boards',id),{priv:!b.priv});}));
   toast('공개 상태가 변경되었습니다.');
 };
 
+/* ACCOUNT OPS */
 window.activateAcc=async function(id){await updateDoc(doc(db,'users',id),{status:'active'});toast('계정이 활성화되었습니다.');};
 window.deactivateAcc=async function(id){await updateDoc(doc(db,'users',id),{status:'inactive'});toast('계정이 비활성화되었습니다.');};
 window.deleteAcc=async function(id){if(confirm('이 계정을 삭제하시겠습니까?')){await deleteDoc(doc(db,'users',id));toast('계정이 삭제되었습니다.');}};
+window.openEditAcc=function(id){
+  const a=accounts.find(x=>x.id===id);if(!a)return;
+  document.getElementById('edit-acc-id').value=id;
+  document.getElementById('edit-name').value=a.name||'';
+  document.getElementById('edit-pos').value=a.pos||'사원';
+  document.getElementById('edit-role').value=a.role||'user';
+  updateDeptSelects();
+  setTimeout(()=>document.getElementById('edit-dept').value=a.dept||'',50);
+  window.openModal('editAcc');
+};
+window.saveEditAcc=async function(){
+  const id=document.getElementById('edit-acc-id').value;
+  const name=document.getElementById('edit-name').value.trim();
+  const pos=document.getElementById('edit-pos').value;
+  const dept=document.getElementById('edit-dept').value;
+  const role=document.getElementById('edit-role').value;
+  if(!name){toast('이름을 입력하세요.');return;}
+  await updateDoc(doc(db,'users',id),{name,pos,dept,role});
+  if(accounts.find(a=>a.id===id)?.email===curUser?.email){
+    document.getElementById('s-name').textContent=name;
+    document.getElementById('s-role').textContent=dept+' · '+pos;
+    document.getElementById('s-av').textContent=name[0];
+  }
+  window.closeModal('editAcc');toast('계정 정보가 수정되었습니다.');
+};
 
+/* DEPT OPS */
+window.submitDept=async function(){
+  const name=document.getElementById('dept-name').value.trim();
+  if(!name){toast('부서 이름을 입력하세요.');return;}
+  const existing=['개발팀','인사팀','영업팀','총무팀','기획팀','법무팀','마케팅팀','IT지원팀','경영지원',...depts.map(d=>d.name)];
+  if(existing.includes(name)){toast('이미 존재하는 부서입니다.');return;}
+  await addDoc(collection(db,'depts'),{name,desc:document.getElementById('dept-desc').value.trim(),createdAt:serverTimestamp()});
+  window.closeModal('addDept');document.getElementById('dept-name').value='';document.getElementById('dept-desc').value='';
+  toast(`'${name}' 부서가 생성되었습니다.`);
+};
+window.deleteDept=async function(id,name){
+  if(!confirm(`'${name}' 부서를 삭제하시겠습니까?`))return;
+  await deleteDoc(doc(db,'depts',id));toast('부서가 삭제되었습니다.');
+};
+
+/* MODAL */
 window.openModal=function(name){document.getElementById('modal-'+name).classList.add('open');};
 window.closeModal=function(name){document.getElementById('modal-'+name).classList.remove('open');if(name==='addAcc')resetWiz();};
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)window.closeModal(o.id.replace('modal-',''));}));
 
+/* MAIL */
 window.sendMail=async function(){
   const to=document.getElementById('m-to').value.trim();
   const subj=document.getElementById('m-subj').value.trim();
@@ -685,6 +724,7 @@ window.sendMail=async function(){
   toast('메일이 발송되었습니다.');
 };
 
+/* BOARD */
 window.selCat=function(el,cat){curCat=cat;el.closest('.cat-row').querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');};
 window.submitPost=async function(){
   const title=document.getElementById('p-title').value.trim();if(!title){toast('제목을 입력하세요.');return;}
@@ -694,6 +734,7 @@ window.submitPost=async function(){
   toast('게시물이 등록되었습니다.');
 };
 
+/* FILES */
 window.submitFile=async function(){
   const name=document.getElementById('u-name').value.trim();if(!name){toast('파일 이름을 입력하세요.');return;}
   await addDoc(collection(db,'files'),{name,ext:document.getElementById('u-ext').value,size:document.getElementById('u-size').value||'-',uploader:curProfile?.name||curUser.email,createdAt:serverTimestamp()});
@@ -701,17 +742,19 @@ window.submitFile=async function(){
   toast('파일이 등록되었습니다.');
 };
 
+/* WIZARD (2단계) */
 function resetWiz(){
-  wizStep=1;eVerified=false;pVerified=false;
-  ['ws1','ws2','ws3'].forEach((id,i)=>document.getElementById(id).style.display=i===0?'':'none');
-  [1,2,3].forEach(i=>{const s=document.getElementById('si'+i);s.className='step'+(i===1?' active':'');s.querySelector('.step-circle').textContent=i;});
-  document.getElementById('wiz-prev').style.display='none';document.getElementById('wiz-next').textContent='다음 →';
-  document.getElementById('e-otp-row').style.display='none';document.getElementById('p-otp-row').style.display='none';
-  document.getElementById('e-ok').classList.remove('show');document.getElementById('p-ok').classList.remove('show');
-  ['a-name','a-email','a-phone','a-pw'].forEach(id=>document.getElementById(id).value='');
+  wizStep=1;eVerified=false;
+  ['ws1','ws2'].forEach((id,i)=>document.getElementById(id).style.display=i===0?'':'none');
+  [1,2].forEach(i=>{const s=document.getElementById('si'+i);s.className='step'+(i===1?' active':'');s.querySelector('.step-circle').textContent=i;});
+  document.getElementById('wiz-prev').style.display='none';
+  document.getElementById('wiz-next').textContent='다음 →';
+  document.getElementById('e-otp-row').style.display='none';
+  document.getElementById('e-ok').classList.remove('show');
+  ['a-name','a-email','a-pw'].forEach(id=>document.getElementById(id).value='');
 }
 function updWiz(step){
-  [1,2,3].forEach(i=>{const s=document.getElementById('si'+i);
+  [1,2].forEach(i=>{const s=document.getElementById('si'+i);
     if(i<step){s.className='step done';s.querySelector('.step-circle').innerHTML='<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';}
     else if(i===step){s.className='step active';s.querySelector('.step-circle').textContent=i;}
     else{s.className='step';s.querySelector('.step-circle').textContent=i;}
@@ -719,50 +762,42 @@ function updWiz(step){
 }
 window.wizNext=function(){
   if(wizStep===1){
-    if(!document.getElementById('a-name').value.trim()){toast('이름을 입력하세요.');return;}
+    const name=document.getElementById('a-name').value.trim();
     const email=document.getElementById('a-email').value.trim();
+    if(!name){toast('이름을 입력하세요.');return;}
     if(!email||!/\S+@\S+\.\S+/.test(email)){toast('올바른 이메일을 입력하세요.');return;}
     if(!document.getElementById('a-pw').value){toast('임시 비밀번호를 생성하세요.');return;}
+    if(!accTurnstileToken){toast('로봇 인증을 완료해주세요.');return;}
+    document.getElementById('a-email-display').textContent=email;
     wizStep=2;document.getElementById('ws1').style.display='none';document.getElementById('ws2').style.display='';
-    document.getElementById('wiz-prev').style.display='';updWiz(2);
+    document.getElementById('wiz-prev').style.display='';document.getElementById('wiz-next').textContent='계정 생성';updWiz(2);
   }else if(wizStep===2){
     if(!eVerified){toast('이메일 인증을 완료하세요.');return;}
-    wizStep=3;document.getElementById('ws2').style.display='none';document.getElementById('ws3').style.display='';
-    document.getElementById('wiz-next').textContent='계정 생성';updWiz(3);
-  }else{createAccount();}
+    createAccount();
+  }
 };
 window.wizPrev=function(){
-  if(wizStep===2){wizStep=1;document.getElementById('ws2').style.display='none';document.getElementById('ws1').style.display='';document.getElementById('wiz-prev').style.display='none';document.getElementById('wiz-next').textContent='다음 →';updWiz(1);}
-  else if(wizStep===3){wizStep=2;document.getElementById('ws3').style.display='none';document.getElementById('ws2').style.display='';document.getElementById('wiz-next').textContent='다음 →';updWiz(2);}
+  wizStep=1;document.getElementById('ws2').style.display='none';document.getElementById('ws1').style.display='';
+  document.getElementById('wiz-prev').style.display='none';document.getElementById('wiz-next').textContent='다음 →';updWiz(1);
 };
-window.skipPhone=function(){pVerified=false;createAccount();};
 async function createAccount(){
   const colors=['#4f8ef7','#34c98a','#e8a430','#e2534a','#9333ea','#0891b2','#059669'];
+  const name=document.getElementById('a-name').value.trim();
   const email=document.getElementById('a-email').value.trim();
   const pw=document.getElementById('a-pw').value;
   try{
-    await createUserWithEmailAndPassword(auth,email,pw);
     await addDoc(collection(db,'users'),{
-      name:document.getElementById('a-name').value.trim(),email,
-      dept:document.getElementById('a-dept').value,pos:document.getElementById('a-pos').value,
-      role:document.getElementById('a-role').value,phone:document.getElementById('a-phone').value.trim(),
-      status:'active',eV:true,pV:pVerified,color:colors[Math.floor(Math.random()*colors.length)],
-      createdAt:serverTimestamp()
-    });
-    await signInWithEmailAndPassword(auth,curUser.email,prompt('현재 비밀번호를 입력하세요 (재로그인 필요):'));
-  }catch(e){
-    await addDoc(collection(db,'users'),{
-      name:document.getElementById('a-name').value.trim(),email,
-      dept:document.getElementById('a-dept').value,pos:document.getElementById('a-pos').value,
-      role:document.getElementById('a-role').value,phone:document.getElementById('a-phone').value.trim(),
-      status:'active',eV:true,pV:pVerified,color:colors[Math.floor(Math.random()*colors.length)],
+      name,email,dept:document.getElementById('a-dept').value,
+      pos:document.getElementById('a-pos').value,role:document.getElementById('a-role').value,
+      phone:'',status:'active',eV:true,color:colors[Math.floor(Math.random()*colors.length)],
       tempPw:pw,createdAt:serverTimestamp()
     });
-  }
-  window.closeModal('addAcc');toast('계정이 생성되었습니다. 임시비밀번호: '+pw);
+    window.closeModal('addAcc');toast(`'${name}' 계정이 생성되었습니다. 임시 비밀번호: ${pw}`);
+  }catch(e){toast('계정 생성 실패: '+e.message);}
 }
 window.genPw=function(){const c='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';document.getElementById('a-pw').value=Array.from({length:10},()=>c[Math.floor(Math.random()*c.length)]).join('');};
 
+/* OTP */
 function makeOTP(){return String(Math.floor(100000+Math.random()*900000));}
 function startTimer(id,sec,cb){
   clearInterval(timers[id]);let s=sec;const el=document.getElementById(id+'-timer');
@@ -773,7 +808,7 @@ async function doSendOTP(toEmail,cb){
   const code=makeOTP();
   if(ejsReady){
     try{await emailjs.send(EJS_SERVICE,EJS_TMPL,{to_email:toEmail,otp_code:code,from_name:'WorkNet'});toast('인증코드를 '+toEmail+'로 발송했습니다.');}
-    catch(e){toast('[EmailJS 오류]');return;}
+    catch(e){toast('[EmailJS 오류] 설정을 확인하세요.');console.error(e);return;}
   }else{
     console.log('%c[OTP] '+code+' → '+toEmail,'background:#1a2235;color:#34c98a;padding:4px 8px;border-radius:4px;font-size:14px;font-weight:bold');
     toast('시뮬레이션: 인증코드 → 콘솔(F12) 확인');
@@ -790,135 +825,13 @@ window.verifyEmailOTP=function(){
   if(document.getElementById('e-otp').value===otps.e){eVerified=true;document.getElementById('e-ok').classList.add('show');document.getElementById('e-otp-row').style.display='none';toast('이메일 인증 완료');}
   else{toast('인증코드가 올바르지 않습니다.');}
 };
-window.sendPhoneOTP=function(){
-  const ph=document.getElementById('a-phone').value.trim();if(!ph){toast('전화번호를 입력하세요.');return;}
-  const code=makeOTP();otps.p=code;document.getElementById('p-send-btn').disabled=true;document.getElementById('p-otp-row').style.display='';
-  console.log('%c[SMS] '+code+' → +82 '+ph,'background:#1a2235;color:#4f8ef7;padding:4px 8px;border-radius:4px;font-size:14px;font-weight:bold');
-  toast('SMS 시뮬레이션 — 콘솔(F12) 확인');
-  startTimer('p',120,()=>document.getElementById('p-send-btn').disabled=false);
-};
-window.verifyPhoneOTP=function(){
-  if(document.getElementById('p-otp').value===otps.p){pVerified=true;document.getElementById('p-ok').classList.add('show');document.getElementById('p-otp-row').style.display='none';toast('전화번호 인증 완료');}
-  else toast('인증코드가 올바르지 않습니다.');
-};
 
-window.sendPwReset=async function(){
-  const email=document.getElementById('fg-email').value.trim();if(!email){toast('이메일을 입력하세요.');return;}
-  try{await sendPasswordResetEmail(auth,email);document.getElementById('fg-ok').classList.add('show');toast('재설정 메일이 발송되었습니다.');}
-  catch(e){toast('발송 실패: 가입된 이메일인지 확인하세요.');}
-};
-
-window.sendRegOTP=function(){
-  const email=document.getElementById('r-email').value.trim();if(!email){toast('이메일을 입력하세요.');return;}
-  doSendOTP(email,c=>{otps.r=c;document.getElementById('r-otp-row').style.display='';});
-};
-window.verifyRegOTP=function(){
-  if(document.getElementById('r-otp').value===otps.r){rgVerified=true;document.getElementById('r-ok').classList.add('show');document.getElementById('r-otp-row').style.display='none';toast('이메일 인증 완료');}
-  else toast('인증코드가 올바르지 않습니다.');
-};
-window.submitReg=async function(){
-  if(!rgVerified){toast('이메일 인증을 먼저 완료하세요.');return;}
-  const name=document.getElementById('r-name').value.trim();
-  const email=document.getElementById('r-email').value.trim();
-  const pw=document.getElementById('r-pw').value;
-  const dept=document.getElementById('r-dept').value;
-  if(!name||!pw){toast('이름과 비밀번호를 입력하세요.');return;}
-  if(pw.length<6){toast('비밀번호는 6자 이상이어야 합니다.');return;}
-  try{
-    await createUserWithEmailAndPassword(auth,email,pw);
-    const colors=['#4f8ef7','#34c98a','#e8a430','#e2534a','#9333ea'];
-    await addDoc(collection(db,'users'),{name,email,dept,pos:'사원',role:'user',phone:'',status:'pending',eV:true,pV:false,color:colors[Math.floor(Math.random()*colors.length)],createdAt:serverTimestamp()});
-    await signOut(auth);
-    window.closeModal('register');toast('가입 요청 완료! 관리자 승인을 기다려주세요.');
-  }catch(e){
-    toast(e.code==='auth/email-already-in-use'?'이미 사용 중인 이메일입니다.':'가입 실패: '+e.message);
-  }
-};
-
-// 부서 렌더
-function renderDepts(){
-  const grid=document.getElementById('dept-grid');
-  if(!grid)return;
-  const defaultDepts=['개발팀','인사팀','영업팀','총무팀','기획팀','법무팀','마케팅팀','IT지원팀','경영지원'];
-  const allDepts=[...new Set([...defaultDepts,...depts.map(d=>d.name)])];
-  grid.innerHTML=allDepts.map(name=>{
-    const d=depts.find(x=>x.name===name);
-    const memberCount=accounts.filter(a=>a.dept===name).length;
-    const isCustom=!!d;
-    return`<div class="acc-card"><div class="acc-card-top"><div class="acc-avatar" style="background:#4f8ef7;width:42px;height:42px;font-size:18px">🏢</div><div><div class="acc-name">${esc(name)}</div><div class="acc-dept">${memberCount}명</div>${d?.desc?`<div style="font-size:11px;color:var(--muted)">${esc(d.desc)}</div>`:''}</div></div><div class="acc-actions">${isCustom?`<button class="btn xs danger" onclick="deleteDept('${d.id}','${name}')">삭제</button>`:''}</div></div>`;
-  }).join('');
-  const stat=document.getElementById('dept-stat');
-  if(stat)stat.textContent=`전체 ${allDepts.length}개 부서`;
-  const sub=document.getElementById('dept-sub');
-  if(sub)sub.textContent=`전체 ${allDepts.length}개 부서`;
-}
-
-// 부서 select 업데이트
-function updateDeptSelects(){
-  const defaultDepts=['개발팀','인사팀','영업팀','총무팀','기획팀','법무팀','마케팅팀','IT지원팀','경영지원'];
-  const allDepts=[...new Set([...defaultDepts,...depts.map(d=>d.name)])];
-  const opts=allDepts.map(d=>`<option>${d}</option>`).join('');
-  ['a-dept','edit-dept'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.innerHTML=opts;
-  });
-}
-
-// 부서 만들기
-window.submitDept=async function(){
-  const name=document.getElementById('dept-name').value.trim();
-  if(!name){toast('부서 이름을 입력하세요.');return;}
-  const existing=['개발팀','인사팀','영업팀','총무팀','기획팀','법무팀','마케팅팀','IT지원팀','경영지원',...depts.map(d=>d.name)];
-  if(existing.includes(name)){toast('이미 존재하는 부서입니다.');return;}
-  await addDoc(collection(db,'depts'),{name,desc:document.getElementById('dept-desc').value.trim(),createdAt:serverTimestamp()});
-  window.closeModal('addDept');document.getElementById('dept-name').value='';document.getElementById('dept-desc').value='';
-  toast(`'${name}' 부서가 생성되었습니다.`);
-};
-
-// 부서 삭제
-window.deleteDept=async function(id,name){
-  if(!confirm(`'${name}' 부서를 삭제하시겠습니까?\n소속 인원의 부서는 변경되지 않습니다.`))return;
-  await deleteDoc(doc(db,'depts',id));toast('부서가 삭제되었습니다.');
-};
-
-// 계정 수정 모달 열기
-window.openEditAcc=function(id){
-  const a=accounts.find(x=>x.id===id);if(!a)return;
-  document.getElementById('edit-acc-id').value=id;
-  document.getElementById('edit-name').value=a.name||'';
-  document.getElementById('edit-pos').value=a.pos||'사원';
-  document.getElementById('edit-role').value=a.role||'user';
-  updateDeptSelects();
-  setTimeout(()=>{document.getElementById('edit-dept').value=a.dept||'';},50);
-  window.openModal('editAcc');
-};
-
-// 계정 수정 저장
-window.saveEditAcc=async function(){
-  const id=document.getElementById('edit-acc-id').value;
-  const name=document.getElementById('edit-name').value.trim();
-  const pos=document.getElementById('edit-pos').value;
-  const dept=document.getElementById('edit-dept').value;
-  const role=document.getElementById('edit-role').value;
-  if(!name){toast('이름을 입력하세요.');return;}
-  await updateDoc(doc(db,'users',id),{name,pos,dept,role});
-  // 현재 로그인 계정이면 사이드바도 업데이트
-  if(curUser&&accounts.find(a=>a.id===id)?.email===curUser.email){
-    document.getElementById('s-name').textContent=name;
-    document.getElementById('s-role').textContent=dept+' · '+pos;
-    document.getElementById('s-av').textContent=name[0];
-  }
-  window.closeModal('editAcc');toast('계정 정보가 수정되었습니다.');
-};
-
-window.fmtPhone=function(el){let v=el.value.replace(/\D/g,'');if(v.length>3&&v.length<=7)v=v.slice(0,3)+'-'+v.slice(3);else if(v.length>7)v=v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7,11);el.value=v;};
+/* HELPERS */
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtTime(ts){
-  if(!ts)return '';
-  const d=ts.toDate?ts.toDate():new Date(ts);
-  const now=new Date();const diff=now-d;
+  if(!ts)return '';const d=ts.toDate?ts.toDate():new Date(ts);const now=new Date();const diff=now-d;
   if(diff<60000)return '방금';if(diff<3600000)return Math.floor(diff/60000)+'분 전';
-  if(diff<86400000)return Math.floor(diff/3600000)+'시간 전';
-  if(diff<604800000)return Math.floor(diff/86400000)+'일 전';
+  if(diff<86400000)return Math.floor(diff/3600000)+'시간 전';if(diff<604800000)return Math.floor(diff/86400000)+'일 전';
   return`${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
 }
 let tT;
