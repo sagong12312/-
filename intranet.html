@@ -452,20 +452,18 @@ onAuthStateChanged(auth,async user=>{
 
 /* Turnstile 콜백 */
 let turnstileToken = '';
-window.onLoginVerified = function(token){
+function onLoginVerified(token){
   turnstileToken = token;
   const btn = document.getElementById('login-btn');
-  btn.disabled = false;
-  btn.style.opacity = '1';
-  btn.style.cursor = 'pointer';
-};
-window.onLoginExpired = function(){
+  if(btn){btn.disabled=false;btn.style.opacity='1';btn.style.cursor='pointer';}
+}
+function onLoginExpired(){
   turnstileToken = '';
   const btn = document.getElementById('login-btn');
-  btn.disabled = true;
-  btn.style.opacity = '.4';
-  btn.style.cursor = 'default';
-};
+  if(btn){btn.disabled=true;btn.style.opacity='.4';btn.style.cursor='default';}
+}
+window.onLoginVerified = onLoginVerified;
+window.onLoginExpired = onLoginExpired;
 
 let accTurnstileToken = '';
 window.onAccVerified = function(token){ accTurnstileToken = token; };
