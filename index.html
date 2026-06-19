@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>민랭 인터프리터</title>
+<title>가나다라마바사</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&family=Space+Mono:wght@400;700&display=swap');
 
@@ -257,16 +257,14 @@
     <button class="tab active" onclick="switchTab('interp')">▶ 인터프리터</button>
     <button class="tab" onclick="switchTab('enc')">⇄ 인코더/디코더</button>
     <button class="tab" onclick="switchTab('docs')">📖 문법 가이드</button>
-    <button class="tab" onclick="location.href='intranet.html'" style="background:rgba(6,182,212,0.15);color:#06b6d4;border:1px solid rgba(6,182,212,0.3)">🏢 인트라넷</button>
   </div>
 
   <div class="interp active" id="tab-interp">
     <div class="panel">
       <div class="panel-title">코드 입력</div>
-      <textarea id="code-input" placeholder="민랭 코드를 입력하세요...
-예) vdb >> 켭믘 =?
-예) lpp abc = 58
-예) vdb >> abc =?"></textarea>
+      <textarea id="code-input" placeholder="코드를 입력하세요...
+
+
       <div class="btn-row">
         <button class="btn btn-primary" onclick="runCode()">▶ 실행</button>
         <button class="btn btn-secondary" onclick="clearCode()">✕ 지우기</button>
@@ -282,7 +280,7 @@
 
   <div class="enc" id="tab-enc">
     <div class="panel">
-      <div class="panel-title">인코더 (일반 → 민랭)</div>
+      <div class="panel-title">인코더 (일반 → (여기에 이름)</div>
       <input type="text" id="enc-input" placeholder="변환할 텍스트 입력 (한글, 영문, 숫자)" oninput="doEncode()">
       <div class="hint">※ 공백은 ^ 로 변환됩니다</div>
       <div style="margin-top:12px">
@@ -292,7 +290,7 @@
     </div>
 
     <div class="panel">
-      <div class="panel-title">디코더 (민랭 → 일반)</div>
+      <div class="panel-title">디코더 ((여기에 이름) → 일반)</div>
       <input type="text" id="dec-input" placeholder="민랭 인코딩 텍스트 입력" oninput="doDecode()">
       <div class="hint">※ ^ 는 공백으로 변환됩니다</div>
       <div style="margin-top:12px">
