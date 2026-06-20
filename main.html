@@ -52,6 +52,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="spacer"></div>
   <button class="btn" onclick="openHelp()">📖 문법 도움말</button>
   <button class="btn" onclick="loadExample()">예제 불러오기</button>
+  <input type="file" id="fileIn" accept=".txt,.han,.html" style="display:none" onchange="importCode(event)">
+  <button class="btn" onclick="document.getElementById('fileIn').click()">📂 코드 열기</button>
+  <button class="btn" onclick="exportCode()">💾 코드 저장</button>
   <button class="btn green" onclick="copyCode()">📋 HTML 복사</button>
   <button class="btn primary" onclick="downloadHtml()">⬇ HTML 저장</button>
 </div>
@@ -73,6 +76,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <div class="foot">
   <span id="stat">대기 중</span>
+  <span id="saved" style="color:var(--accent2)"></span>
   <div class="spacer"></div>
   <span>줄: <b id="lines">0</b></span>
 </div>
@@ -134,6 +138,11 @@ const TAGS = {
   // 입력
   '입력칸':{tag:'input',self:true,cat:'입력',attrMap:{'종류':'type','안내':'placeholder','값':'value'}},
   '여러줄입력':{tag:'textarea',cat:'입력',attrMap:{'안내':'placeholder'}},
+  // 미디어
+  '영상':{tag:'video',cat:'미디어',attrMap:{'주소':'src','너비':'width','높이':'height'},extra:'controls'},
+  '소리':{tag:'audio',cat:'미디어',attrMap:{'주소':'src'},extra:'controls'},
+  '유튜브':{tag:'__youtube__',cat:'미디어',attrMap:{'주소':'src'}},
+  '지도':{tag:'__map__',cat:'미디어',attrMap:{'장소':'q'}},
 };
 
 // 공통 속성: 색상/배경/크기/정렬
@@ -196,6 +205,28 @@ function transpileLine(raw){
   });
   if(styles)attrs+=` style="${styles}"`;
 
+  // 유튜브 특수 처리
+  if(def.tag==='__youtube__'){
+    let url=content.trim();
+    // 속성 주소가 있으면 사용
+    const srcM=attrsRaw.find(a=>a.includes('주소='));
+    if(srcM)url=srcM.slice(1,-1).split('=').slice(1).join('=').trim();
+    let id='';
+    const y1=url.match(/[?&]v=([^&]+)/);const y2=url.match(/youtu\.be\/([^?&]+)/);const y3=url.match(/embed\/([^?&]+)/);
+    id=y1?y1[1]:y2?y2[1]:y3?y3[1]:url;
+    return {html:indent+`<iframe width="560" height="315" src="https://www.youtube.com/embed/${escapeAttr(id)}" frameborder="0" allowfullscreen></iframe>`,indent};
+  }
+  // 지도 특수 처리
+  if(def.tag==='__map__'){
+    let place=content.trim();
+    const qM=attrsRaw.find(a=>a.includes('장소='));
+    if(qM)place=qM.slice(1,-1).split('=').slice(1).join('=').trim();
+    return {html:indent+`<iframe width="600" height="450" style="border:0" loading="lazy" src="https://maps.google.com/maps?q=${encodeURIComponent(place)}&output=embed"></iframe>`,indent};
+  }
+
+  // extra 속성 (controls 등)
+  if(def.extra)attrs+=' '+def.extra;
+
   // self-closing 태그
   if(def.self){
     return {html:indent+`<${def.tag}${attrs}>`,indent};
@@ -223,15 +254,36 @@ function escapeAttr(s){return String(s).replace(/"/g,'&quot;');}
 function transpile(src){
   const lines=src.split('\n');
   const out=[];
-  lines.forEach(l=>{
+  for(let i=0;i<lines.length;i++){
+    let l=lines[i];
+    const t=l.trim();
+    // 간단 표 문법: |칸1|칸2|칸3|
+    if(/^\|.*\|$/.test(t)){
+      const indent=l.match(/^\s*/)[0];
+      // 연속된 표 줄 모으기
+      const rows=[];
+      while(i<lines.length&&/^\s*\|.*\|$/.test(lines[i])){
+        const cells=lines[i].trim().slice(1,-1).split('|');
+        rows.push(cells);
+        i++;
+      }
+      i--;
+      let tbl=indent+'<table border="1" cellpadding="6" style="border-collapse:collapse">';
+      rows.forEach((cells,idx)=>{
+        const tag=idx===0?'th':'td';
+        tbl+='<tr>'+cells.map(c=>`<${tag}>${transpileInline(c.trim())}</${tag}>`).join('')+'</tr>';
+      });
+      tbl+='</table>';
+      out.push(tbl);
+      continue;
+    }
     const r=transpileLine(l);
-    if(r.skip)return;
+    if(r.skip)continue;
     if(r.html!=='')out.push(r.html);
-  });
+  }
   return out.join('\n');
 }
 
-// 아 졸려 ㅠㅠ
 // ═══════════ UI ═══════════
 const input=document.getElementById('input');
 const output=document.getElementById('output');
@@ -241,10 +293,46 @@ function update(){
   const src=input.value;
   const html=transpile(src);
   output.textContent=html||'(변환된 HTML이 여기 표시됩니다)';
-  const doc=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:-apple-system,sans-serif;padding:16px;line-height:1.6}img{max-width:100%}</style></head><body>${html}</body></html>`;
+  const doc=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:-apple-system,sans-serif;padding:16px;line-height:1.6}img{max-width:100%}table{margin:8px 0}</style></head><body>${html}</body></html>`;
   preview.srcdoc=doc;
   document.getElementById('lines').textContent=src.split('\n').filter(l=>l.trim()).length;
   document.getElementById('stat').textContent=html?'변환 완료':'대기 중';
+  autoSave(src);
+}
+
+// ═══════════ 자동 저장 ═══════════
+let saveTimer;
+function autoSave(src){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    try{
+      localStorage.setItem('hangulhtml_code',src);
+      const el=document.getElementById('saved');
+      el.textContent='✓ 자동 저장됨';
+      setTimeout(()=>el.textContent='',1500);
+    }catch(e){}
+  },600);
+}
+function loadSaved(){
+  try{
+    const saved=localStorage.getItem('hangulhtml_code');
+    if(saved&&saved.trim()){input.value=saved;return true;}
+  }catch(e){}
+  return false;
+}
+
+// ═══════════ 코드 불러오기/내보내기 ═══════════
+function exportCode(){
+  const blob=new Blob([input.value],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='한글코드.han';a.click();
+  toast('코드가 저장되었습니다!');
+}
+function importCode(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{input.value=ev.target.result;update();toast('코드를 불러왔습니다!');};
+  reader.readAsText(file,'utf-8');
+  e.target.value='';
 }
 input.addEventListener('input',update);
 // 탭키 처리
@@ -275,7 +363,22 @@ function loadExample(){
 <항목>김치찌개
 <항목>비빔밥
 <항목>떡볶이
-`;
+
+<중제목>간단한 표
+|이름|나이|도시|
+|홍길동|25|서울|
+|김철수|30|부산|
+
+<중제목>영상과 지도
+<유튜브>https://youtu.be/dQw4w9WgXcQ
+<지도>서울 남산타워
+
+<중제목>링크와 버튼
+<링크[주소=https://github.com]>깃허브 가기
+<줄바꿈>
+<버튼[배경=초록][색=하양][여백=10][둥글기=6]>눌러보세요
+
+<인용[색=회색]>한글로 코딩하니 편리하네요!`;
   update();
 }
 
@@ -295,7 +398,10 @@ function buildTagList(){
     html+=`<div class="tag-cat">${cat}</div><table class="tag-table"><tr><th>한글</th><th>HTML</th><th>예시</th></tr>`;
     items.forEach(({ko,def})=>{
       const ex=def.self?`&lt;${ko}&gt;`:`&lt;${ko}&gt;내용`;
-      html+=`<tr><td><code>${ko}</code></td><td>&lt;${def.tag}&gt;</td><td style="color:var(--muted)">${ex}</td></tr>`;
+      let htmlTag=def.tag;
+      if(htmlTag==='__youtube__')htmlTag='iframe(유튜브)';
+      else if(htmlTag==='__map__')htmlTag='iframe(지도)';
+      html+=`<tr><td><code>${ko}</code></td><td>&lt;${htmlTag}&gt;</td><td style="color:var(--muted)">${ex}</td></tr>`;
     });
     html+='</table>';
   }
@@ -306,6 +412,8 @@ function buildTagList(){
   html+='</table>';
   // 인라인
   html+=`<div class="tag-cat">문단 안 인라인 문법</div><table class="tag-table"><tr><th>문법</th><th>결과</th></tr><tr><td><code>**글자**</code></td><td>굵게</td></tr><tr><td><code>*글자*</code></td><td>기울임</td></tr><tr><td><code>__글자__</code></td><td>밑줄</td></tr></table>`;
+  // 간단 표
+  html+=`<div class="tag-cat">간단 표 문법</div><div style="font-size:13px;color:var(--muted);padding:0 10px;line-height:1.9">각 줄을 <code style="background:var(--panel2);padding:2px 6px;border-radius:4px;color:var(--key)">|</code> 로 칸을 나눠 작성하면 표가 됩니다.<br>첫 줄은 자동으로 머리글이 됩니다.<br><br><code style="background:var(--panel2);padding:2px 6px;border-radius:4px;color:var(--key)">|이름|나이|<br>|홍길동|25|</code></div>`;
   // 색상 목록
   html+=`<div class="tag-cat">사용 가능한 색상</div><div style="font-size:13px;color:var(--muted);padding:0 10px;line-height:2">${Object.keys(COLORS).join(', ')}</div>`;
   document.getElementById('tag-list').innerHTML=html;
@@ -315,8 +423,8 @@ let tT;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),2500);}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeHelp();});
 
-// 시작 시 예제 로드
-loadExample();
+// 시작 시: 저장된 코드 있으면 불러오고, 없으면 예제
+if(loadSaved()){update();}else{loadExample();}
 </script>
 </body>
 </html>
