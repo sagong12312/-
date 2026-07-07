@@ -19,25 +19,28 @@ h1{font-size:20px;margin-bottom:6px}
 .status.ok{color:#34c98a;font-weight:600}
 .spinner{display:none;width:22px;height:22px;border:3px solid #e2e4e9;border-top-color:#4f8ef7;border-radius:50%;animation:spin .8s linear infinite;margin:8px auto 0}
 @keyframes spin{to{transform:rotate(360deg)}}
-.brand{margin-top:24px;font-size:12px;color:#9ca3af}.brand b{color:#4f8ef7}
+.back{margin-top:18px;font-size:12px}
+.back a{color:#9ca3af;text-decoration:none}.back a:hover{color:#5b8def}
+.brand{margin-top:16px;font-size:12px;color:#9ca3af}.brand b{color:#4f8ef7}
 </style>
 </head>
 <body>
 <div class="box">
   <div class="icon"><img src="logo.png" alt="로고" onerror="this.parentElement.textContent='🔒'"></div>
   <h1>보안 확인</h1>
-  <div class="sub">사이트 접속 전 로봇이 아님을 확인합니다.<br>인증이 완료되면 자동으로 이동합니다.</div>
+  <div class="sub">로봇이 아님을 확인합니다.<br>인증이 완료되면 자동으로 이동합니다.</div>
   <div class="cf-wrap">
     <div class="cf-turnstile" data-sitekey="0x4AAAAAADnt6Jka430H7PLo" data-theme="light" data-callback="onVerified"></div>
   </div>
   <div class="spinner" id="spinner"></div>
   <div class="status" id="status">인증을 완료해 주세요.</div>
+  <div class="back"><a href="index.html">← 처음으로</a></div>
   <div class="brand">Protected by <b>Cloudflare</b></div>
 </div>
 
 <script>
 // ★ 인증 통과 후 이동할 페이지
-var REDIRECT_TO = '한글HTML.html';
+var REDIRECT_TO = 'han-html.html';
 
 function onVerified(token){
   var s = document.getElementById('status');
