@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="logo.png" type="image/png">
+<title>HTML → 한글 역변환기</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--panel:#1a1d27;--panel2:#222633;--border:#2d3242;--text:#e4e7ef;--muted:#8b92a8;--accent:#5b8def;--accent2:#34c98a;--key:#e896c4;--code:#a8d4ff}
+body.light{--bg:#f4f6fb;--panel:#ffffff;--panel2:#eef1f7;--border:#dde1ea;--text:#1a1d23;--muted:#6b7280;--accent:#4f8ef7;--accent2:#1ba672;--key:#c2389a;--code:#1e6fd0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{padding:14px 22px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-shrink:0;flex-wrap:wrap}
+.logo{font-size:17px;font-weight:700}.logo span{color:var(--accent)}
+.sub{font-size:12px;color:var(--muted)}
+.spacer{flex:1}
+.btn{padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn:hover{background:var(--border)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn.primary:hover{background:#4a7ce0}
+.btn.green{background:var(--accent2);border-color:var(--accent2);color:#fff}.btn.green:hover{background:#2bb87c}
+.main{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;overflow:hidden}
+.pane{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
+.pane:last-child{border-right:none}
+.pane-head{padding:9px 16px;background:var(--panel);border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.pane-head .dot{width:8px;height:8px;border-radius:50%}
+.dot-code{background:var(--code)}.dot-key{background:var(--key)}.dot-prev{background:var(--accent2)}
+.preview{flex:1;overflow:auto;background:var(--panel2);display:flex;justify-content:center;align-items:flex-start;padding:0}
+.preview.mobile{padding:16px}
+.preview .frame{width:100%;height:100%;background:#fff;transition:all .2s}
+.preview.mobile .frame{width:375px;height:667px;max-height:100%;border-radius:18px;box-shadow:0 8px 32px rgba(0,0,0,.4);border:8px solid #1a1d27;overflow:hidden}
+.preview .frame iframe{width:100%;height:100%;border:none}
+.prev-tools{display:flex;gap:5px;margin-left:auto}
+.dbtn{padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit}
+.dbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.editor{flex:1;background:var(--bg);color:var(--text);border:none;outline:none;resize:none;padding:16px;font-family:'D2Coding','Consolas',monospace;font-size:14px;line-height:1.7;tab-size:2}
+.code-out{flex:1;overflow:auto;background:var(--bg);padding:16px;font-family:'D2Coding','Consolas',monospace;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-all;color:var(--key)}
+.foot{padding:7px 16px;background:var(--panel);border-top:1px solid var(--border);font-size:11px;color:var(--muted);flex-shrink:0;display:flex;align-items:center;gap:10px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--accent);color:#fff;font-size:13px;padding:10px 20px;border-radius:9px;z-index:999;transition:all .25s;opacity:0;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.alert{padding:8px 14px;background:var(--panel2);border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);flex-shrink:0}
+.help-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center}
+.help-overlay.open{display:flex}
+.help-box{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:640px;max-width:94vw;max-height:86vh;overflow:auto}
+.help-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--panel)}
+.help-head h3{font-size:16px}
+.help-close{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer}
+.help-body{padding:20px}
+.tag-table{width:100%;border-collapse:collapse;font-size:13px}
+.tag-table th{text-align:left;padding:8px 10px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600}
+.tag-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.tag-table code{background:var(--panel2);padding:2px 7px;border-radius:5px;color:var(--key);font-family:'D2Coding',monospace;font-size:12px}
+.tag-cat{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;padding:14px 10px 6px}
+@media(max-width:900px){.main{grid-template-columns:1fr;grid-template-rows:1fr 1fr 1fr}.pane{border-right:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">HTML<span>→한글</span></div>
+  <div class="sub">HTML 코드 → 한글 코드 역변환기</div>
+  <div class="spacer"></div>
+  <button class="btn" onclick="toggleTheme()" id="themeBtn">🌙 다크</button>
+  <button class="btn" onclick="openHelp()">📖 문법 도움말</button>
+  <button class="btn" onclick="loadExample()">예제 불러오기</button>
+  <a class="btn" href="한글HTML.html">↔ 정변환기로</a>
+  <input type="file" id="fileIn" accept=".txt,.han,.html,.htm" style="display:none" onchange="importCode(event)">
+  <button class="btn" onclick="document.getElementById('fileIn').click()">📂 코드 열기</button>
+  <button class="btn" onclick="exportCode()">💾 코드 저장</button>
+  <button class="btn green" onclick="copyCode()">📋 한글 코드 복사</button>
+  <button class="btn primary" onclick="downloadCode()">⬇ 한글 코드 저장</button>
+</div>
+
+<div class="alert">HTML을 붙여넣으면 한글 태그 코드로 바꿔드립니다. (지원하지 않는 태그는 원래 태그명으로 표시됩니다)</div>
+
+<div class="main">
+  <div class="pane">
+    <div class="pane-head"><span class="dot dot-code"></span>HTML 코드 입력</div>
+    <textarea class="editor" id="input" spellcheck="false" placeholder="여기에 HTML 코드를 붙여넣으세요..."></textarea>
+  </div>
+  <div class="pane">
+    <div class="pane-head"><span class="dot dot-key"></span>변환된 한글 코드</div>
+    <div class="code-out" id="output"></div>
+  </div>
+  <div class="pane">
+    <div class="pane-head"><span class="dot dot-prev"></span>미리보기
+      <div class="prev-tools">
+        <button class="dbtn active" id="dbtn-pc" onclick="setDevice('pc')">🖥 PC</button>
+        <button class="dbtn" id="dbtn-mobile" onclick="setDevice('mobile')">📱 모바일</button>
+      </div>
+    </div>
+    <div class="preview" id="previewArea"><div class="frame"><iframe id="preview"></iframe></div></div>
+  </div>
+</div>
+
+<div class="foot">
+  <span id="stat">대기 중</span>
+  <span id="saved" style="color:var(--accent2)"></span>
+  <div class="spacer"></div>
+  <span>줄: <b id="lines">0</b></span>
+</div>
+
+<!-- 도움말 -->
+<div class="help-overlay" id="help">
+  <div class="help-box">
+    <div class="help-head"><h3>📖 변환 대응표</h3><button class="help-close" onclick="closeHelp()">×</button></div>
+    <div class="help-body">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:8px">HTML 태그가 어떤 한글 태그로 바뀌는지 보여줍니다.</p>
+      <div id="tag-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// HTML 태그 → 한글 태그 역매핑
+const REV = {
+  'h1':'큰제목','h2':'제목','h3':'중제목','h4':'소제목',
+  'p':'문단','br':'줄바꿈','hr':'구분선','blockquote':'인용',
+  'strong':'굵게','b':'굵게','em':'기울임','i':'기울임','u':'밑줄','s':'취소선','del':'취소선',
+  'mark':'강조','small':'작게','code':'코드','sup':'위첨자','sub':'아래첨자',
+  'a':'링크','img':'이미지','button':'버튼',
+  'ul':'목록','ol':'순서목록','li':'항목','table':'표','tr':'행','td':'칸','th':'머리칸',
+  'div':'구역','span':'범위','section':'구획','header':'머리말','footer':'꼬리말',
+  'input':'입력칸','textarea':'여러줄입력','video':'영상','audio':'소리','iframe':'유튜브'
+};
+// 속성 영문 → 한글
+const ATTR_REV = {
+  'href':'주소','target':'대상','src':'주소','alt':'설명',
+  'width':'너비','height':'높이','type':'종류','placeholder':'안내','value':'값'
+};
+// CSS 속성 → 한글
+const STYLE_REV = {
+  'color':'색','background':'배경','background-color':'배경','font-size':'크기',
+  'text-align':'정렬','font-weight':'굵기','padding':'여백','margin':'바깥여백',
+  'border-radius':'둥글기','border':'테두리','width':'너비','height':'높이'
+};
+const COLOR_REV={'red':'빨강','blue':'파랑','green':'초록','yellow':'노랑','black':'검정','white':'하양','gray':'회색','orange':'주황','purple':'보라','pink':'분홍','skyblue':'하늘','navy':'남색','brown':'갈색'};
+const ALIGN_REV={'left':'왼쪽','center':'가운데','right':'오른쪽','justify':'양쪽'};
+
+const SELF_CLOSE=['br','hr','img','input'];
+const INLINE_TAGS=['strong','b','em','i','u','s','del','mark','small','code','sup','sub'];
+
+function convertStyle(styleStr){
+  const parts=[];
+  styleStr.split(';').forEach(rule=>{
+    if(!rule.trim())return;
+    const ci=rule.indexOf(':');
+    if(ci<0)return;
+    const prop=rule.slice(0,ci).trim().toLowerCase();
+    let val=rule.slice(ci+1).trim();
+    const koProp=STYLE_REV[prop];
+    if(!koProp)return;
+    // 색상/정렬 한글화
+    if((koProp==='색'||koProp==='배경')&&COLOR_REV[val.toLowerCase()])val=COLOR_REV[val.toLowerCase()];
+    if(koProp==='정렬'&&ALIGN_REV[val.toLowerCase()])val=ALIGN_REV[val.toLowerCase()];
+    if(koProp==='굵기'&&val==='bold')val='굵게';
+    // px 제거
+    val=val.replace(/px$/,'');
+    parts.push(`[${koProp}=${val}]`);
+  });
+  return parts.join('');
+}
+
+function convertAttrs(el){
+  let out='';
+  for(const attr of el.attributes){
+    const name=attr.name.toLowerCase();
+    if(name==='style'){out+=convertStyle(attr.value);continue;}
+    const ko=ATTR_REV[name];
+    if(ko){out+=`[${ko}=${attr.value}]`;}
+    else if(name!=='class'&&name!=='id'){out+=`[${name}=${attr.value}]`;}
+  }
+  return out;
+}
+
+// 인라인 요소를 **굵게** 같은 문법으로
+function inlineText(node){
+  let result='';
+  node.childNodes.forEach(child=>{
+    if(child.nodeType===3){result+=child.textContent;}
+    else if(child.nodeType===1){
+      const tag=child.tagName.toLowerCase();
+      const inner=inlineText(child);
+      if(tag==='strong'||tag==='b')result+=`**${inner}**`;
+      else if(tag==='em'||tag==='i')result+=`*${inner}*`;
+      else if(tag==='u')result+=`__${inner}__`;
+      else result+=inner;
+    }
+  });
+  return result;
+}
+
+function hasOnlyInline(el){
+  for(const child of el.childNodes){
+    if(child.nodeType===1&&!INLINE_TAGS.includes(child.tagName.toLowerCase()))return false;
+  }
+  return true;
+}
+
+function convertNode(node,depth){
+  const indent='  '.repeat(depth);
+  const lines=[];
+  if(node.nodeType===3){
+    const txt=node.textContent.trim();
+    if(txt)lines.push(indent+txt);
+    return lines;
+  }
+  if(node.nodeType!==1)return lines;
+
+  const tag=node.tagName.toLowerCase();
+  const ko=REV[tag]||tag;
+  const attrs=convertAttrs(node);
+
+  // iframe 유튜브 특수 처리
+  if(tag==='iframe'){
+    const src=node.getAttribute('src')||'';
+    if(src.includes('youtube.com/embed/')){
+      const id=src.split('/embed/')[1].split('?')[0];
+      lines.push(`${indent}<유튜브>https://youtu.be/${id}`);
+      return lines;
+    }
+    if(src.includes('maps.google')||src.includes('google.com/maps')){
+      const q=decodeURIComponent((src.match(/[?&]q=([^&]+)/)||[])[1]||'');
+      lines.push(`${indent}<지도>${q}`);
+      return lines;
+    }
+  }
+
+  // self-closing
+  if(SELF_CLOSE.includes(tag)){
+    lines.push(`${indent}<${ko}${attrs}>`);
+    return lines;
+  }
+
+  // 인라인만 포함하면 한 줄로
+  if(hasOnlyInline(node)){
+    const content=inlineText(node);
+    lines.push(`${indent}<${ko}${attrs}>${content}`);
+    return lines;
+  }
+
+  // 자식 요소가 있으면 태그 후 자식 재귀
+  lines.push(`${indent}<${ko}${attrs}>`);
+  node.childNodes.forEach(child=>{
+    lines.push(...convertNode(child,depth+1));
+  });
+  return lines;
+}
+
+function convert(html){
+  if(!html.trim())return '';
+  const parser=new DOMParser();
+  // body로 감싸서 파싱
+  const doc=parser.parseFromString('<body>'+html+'</body>','text/html');
+  const body=doc.body;
+  const out=[];
+  body.childNodes.forEach(node=>{
+    out.push(...convertNode(node,0));
+  });
+  return out.filter(l=>l.trim()).join('\n');
+}
+
+// ═══════════ UI ═══════════
+const input=document.getElementById('input');
+const output=document.getElementById('output');
+const preview=document.getElementById('preview');
+
+function update(){
+  const src=input.value;
+  let result='';
+  try{result=convert(src);}catch(e){result='(변환 오류: '+e.message+')';}
+  output.textContent=result||'(변환된 한글 코드가 여기 표시됩니다)';
+  // 입력한 HTML을 그대로 미리보기
+  const doc=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:-apple-system,sans-serif;padding:16px;line-height:1.6}img{max-width:100%}table{margin:8px 0}</style></head><body>${src}</body></html>`;
+  preview.srcdoc=doc;
+  document.getElementById('lines').textContent=src.split('\n').filter(l=>l.trim()).length;
+  document.getElementById('stat').textContent=result?'변환 완료':'대기 중';
+  autoSave(src);
+}
+function setDevice(d){
+  const area=document.getElementById('previewArea');
+  area.classList.toggle('mobile',d==='mobile');
+  document.getElementById('dbtn-pc').classList.toggle('active',d==='pc');
+  document.getElementById('dbtn-mobile').classList.toggle('active',d==='mobile');
+}
+input.addEventListener('input',update);
+input.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){e.preventDefault();const s=input.selectionStart,en=input.selectionEnd;input.value=input.value.slice(0,s)+'  '+input.value.slice(en);input.selectionStart=input.selectionEnd=s+2;update();}
+});
+
+let saveTimer;
+function autoSave(src){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    try{localStorage.setItem('htmlhangul_code',src);
+      const el=document.getElementById('saved');el.textContent='✓ 자동 저장됨';
+      setTimeout(()=>el.textContent='',1500);}catch(e){}
+  },600);
+}
+function loadSaved(){
+  try{const s=localStorage.getItem('htmlhangul_code');if(s&&s.trim()){input.value=s;return true;}}catch(e){}
+  return false;
+}
+
+function copyCode(){
+  navigator.clipboard.writeText(convert(input.value)).then(()=>toast('한글 코드가 복사되었습니다!'));
+}
+function downloadCode(){
+  const blob=new Blob([convert(input.value)],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='한글코드.han';a.click();
+  toast('한글 코드가 저장되었습니다!');
+}
+function loadExample(){
+  input.value=`<h1 style="color:blue;text-align:center">제목입니다</h1>
+<hr>
+<p>이것은 <strong>굵은</strong> 글자와 <em>기울임</em> 글자입니다.</p>
+<p style="background:skyblue;padding:12px;border-radius:8px">꾸민 문단</p>
+<ul>
+  <li>김치찌개</li>
+  <li>비빔밥</li>
+</ul>
+<a href="https://github.com">깃허브 가기</a>
+<button style="background:green;color:white;padding:10px">버튼</button>`;
+  update();
+}
+
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  const isLight=document.body.classList.contains('light');
+  document.getElementById('themeBtn').textContent=isLight?'☀ 라이트':'🌙 다크';
+  try{localStorage.setItem('htmlhangul_theme',isLight?'light':'dark');}catch(e){}
+}
+function loadTheme(){
+  try{if(localStorage.getItem('htmlhangul_theme')==='light'){document.body.classList.add('light');document.getElementById('themeBtn').textContent='☀ 라이트';}}catch(e){}
+}
+
+let tT;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),2500);}
+
+// ═══════════ 코드 열기 (HTML 파일/텍스트 불러오기) ═══════════
+function importCode(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{input.value=ev.target.result;update();toast('파일을 불러왔습니다!');};
+  reader.readAsText(file,'utf-8');
+  e.target.value='';
+}
+// 입력한 HTML 원본 저장
+function exportCode(){
+  const blob=new Blob([input.value],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='입력HTML.html';a.click();
+  toast('HTML이 저장되었습니다!');
+}
+
+// ═══════════ 문법 도움말 (대응표) ═══════════
+function openHelp(){buildTagList();document.getElementById('help').classList.add('open');}
+function closeHelp(){document.getElementById('help').classList.remove('open');}
+function buildTagList(){
+  // 카테고리별 정리
+  const cats={
+    '제목/문단':[['h1','큰제목'],['h2','제목'],['h3','중제목'],['h4','소제목'],['p','문단'],['br','줄바꿈'],['hr','구분선'],['blockquote','인용']],
+    '꾸미기':[['strong / b','굵게'],['em / i','기울임'],['u','밑줄'],['s / del','취소선'],['mark','강조'],['small','작게'],['code','코드'],['sup','위첨자'],['sub','아래첨자']],
+    '링크/이미지/버튼':[['a','링크'],['img','이미지'],['button','버튼']],
+    '목록/표':[['ul','목록'],['ol','순서목록'],['li','항목'],['table','표'],['tr','행'],['td','칸'],['th','머리칸']],
+    '구조':[['div','구역'],['span','범위'],['section','구획'],['header','머리말'],['footer','꼬리말']],
+    '미디어':[['video','영상'],['audio','소리'],['iframe(유튜브)','유튜브'],['iframe(지도)','지도']],
+  };
+  let html='';
+  for(const[cat,items]of Object.entries(cats)){
+    html+=`<div class="tag-cat">${cat}</div><table class="tag-table"><tr><th>HTML 태그</th><th>→ 한글 태그</th></tr>`;
+    items.forEach(([en,ko])=>{html+=`<tr><td><code>&lt;${en}&gt;</code></td><td><code>&lt;${ko}&gt;</code></td></tr>`;});
+    html+='</table>';
+  }
+  // 스타일 속성 대응
+  html+=`<div class="tag-cat">스타일 속성 대응</div><table class="tag-table"><tr><th>CSS</th><th>→ 한글</th></tr>`;
+  const styleEx=[['color','[색=]'],['background','[배경=]'],['font-size','[크기=]'],['text-align','[정렬=]'],['padding','[여백=]'],['border-radius','[둥글기=]'],['border','[테두리=]']];
+  styleEx.forEach(([c,k])=>html+=`<tr><td><code>${c}</code></td><td><code>${k}</code></td></tr>`);
+  html+='</table>';
+  // 인라인
+  html+=`<div class="tag-cat">인라인 변환</div><table class="tag-table"><tr><th>HTML</th><th>→ 한글</th></tr><tr><td><code>&lt;strong&gt;</code></td><td><code>**글자**</code></td></tr><tr><td><code>&lt;em&gt;</code></td><td><code>*글자*</code></td></tr><tr><td><code>&lt;u&gt;</code></td><td><code>__글자__</code></td></tr></table>`;
+  document.getElementById('tag-list').innerHTML=html;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeHelp();});
+
+loadTheme();
+if(loadSaved()){update();}else{loadExample();}
+</script>
+</body>
+</html>
