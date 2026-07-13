@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="logo.png" type="image/png">
+<title>한글 HTML 변환기</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--panel:#1a1d27;--panel2:#222633;--border:#2d3242;--text:#e4e7ef;--muted:#8b92a8;--accent:#5b8def;--accent2:#34c98a;--key:#e896c4;--code:#a8d4ff}
+body.light{--bg:#f4f6fb;--panel:#ffffff;--panel2:#eef1f7;--border:#dde1ea;--text:#1a1d23;--muted:#6b7280;--accent:#4f8ef7;--accent2:#1ba672;--key:#c2389a;--code:#1e6fd0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{padding:14px 22px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-shrink:0}
+.logo{font-size:17px;font-weight:700}.logo span{color:var(--accent)}
+.sub{font-size:12px;color:var(--muted)}
+.spacer{flex:1}
+.btn{padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn:hover{background:var(--border)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn.primary:hover{background:#4a7ce0}
+.btn.green{background:var(--accent2);border-color:var(--accent2);color:#fff}.btn.green:hover{background:#2bb87c}
+.main{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;overflow:hidden}
+.pane{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
+.pane:last-child{border-right:none}
+.pane-head{padding:9px 16px;background:var(--panel);border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.pane-head .dot{width:8px;height:8px;border-radius:50%}
+.dot-key{background:var(--key)}.dot-code{background:var(--code)}.dot-prev{background:var(--accent2)}
+.editor{flex:1;background:var(--bg);color:var(--text);border:none;outline:none;resize:none;padding:16px;font-family:'D2Coding','Consolas',monospace;font-size:14px;line-height:1.7;tab-size:2}
+.code-out{flex:1;overflow:auto;background:var(--bg);padding:16px;font-family:'D2Coding','Consolas',monospace;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-all;color:var(--code)}
+.preview{flex:1;overflow:auto;background:#fff;color:#1a1a1a}
+.preview iframe{width:100%;height:100%;border:none}
+.foot{padding:7px 16px;background:var(--panel);border-top:1px solid var(--border);font-size:11px;color:var(--muted);flex-shrink:0;display:flex;align-items:center;gap:10px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--accent);color:#fff;font-size:13px;padding:10px 20px;border-radius:9px;z-index:999;transition:all .25s;opacity:0;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.help-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center}
+.help-overlay.open{display:flex}
+.help-box{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:640px;max-width:94vw;max-height:86vh;overflow:auto}
+.help-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--panel)}
+.help-head h3{font-size:16px}
+.help-close{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer}
+.help-body{padding:20px}
+.tag-table{width:100%;border-collapse:collapse;font-size:13px}
+.tag-table th{text-align:left;padding:8px 10px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600}
+.tag-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.tag-table code{background:var(--panel2);padding:2px 7px;border-radius:5px;color:var(--key);font-family:'D2Coding',monospace;font-size:12px}
+.tag-cat{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;padding:14px 10px 6px}
+@media(max-width:900px){.main{grid-template-columns:1fr;grid-template-rows:1fr 1fr 1fr}.pane{border-right:none;border-bottom:1px solid var(--border)}}
+
+/* 태그 툴바 */
+.toolbar-wrap{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border)}
+.toolbar-bar{display:flex;align-items:center;padding:6px 12px;gap:8px}
+.toolbar-toggle{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;padding:2px 0}
+.toolbar-toggle:hover{color:var(--text)}
+.toolbar-toggle .arrow{transition:transform .2s;display:inline-block}
+.toolbar-wrap.collapsed .toolbar-toggle .arrow{transform:rotate(-90deg)}
+.toolbar{display:flex;gap:5px;padding:0 12px 10px;flex-wrap:wrap;overflow-x:auto;max-height:200px;transition:max-height .25s,opacity .2s,padding .25s;opacity:1}
+.toolbar-wrap.collapsed .toolbar{max-height:0;opacity:0;padding-top:0;padding-bottom:0;overflow:hidden}
+.tbtn{padding:4px 11px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .12s}
+.tbtn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tbtn-cat{font-size:10px;color:var(--muted);align-self:center;padding:0 4px;font-weight:600}
+
+/* 자동완성 */
+.editor-wrap{flex:1;position:relative;display:flex;flex-direction:column;overflow:hidden}
+.autocomplete{position:absolute;background:var(--panel2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:50;max-height:240px;overflow:auto;display:none;min-width:180px}
+.autocomplete.show{display:block}
+.ac-item{padding:7px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'D2Coding','Consolas',monospace}
+.ac-item:hover,.ac-item.sel{background:var(--accent);color:#fff}
+.ac-item .ac-tag{color:var(--key);font-weight:600}
+.ac-item:hover .ac-tag,.ac-item.sel .ac-tag{color:#fff}
+.ac-item .ac-desc{color:var(--muted);font-size:11px;margin-left:auto}
+.ac-item:hover .ac-desc,.ac-item.sel .ac-desc{color:rgba(255,255,255,.8)}
+
+/* 미리보기 기기 전환 */
+.prev-tools{display:flex;gap:5px;margin-left:auto}
+.dbtn{padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit}
+.dbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.preview{flex:1;overflow:auto;background:var(--panel2);display:flex;justify-content:center;align-items:flex-start;padding:0}
+.preview.mobile{padding:16px}
+.preview .frame{width:100%;height:100%;background:#fff;transition:all .2s}
+.preview.mobile .frame{width:375px;height:667px;max-height:100%;border-radius:18px;box-shadow:0 8px 32px rgba(0,0,0,.4);border:8px solid #1a1d27;overflow:hidden}
+.preview .frame iframe{width:100%;height:100%;border:none}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">한글<span>HTML</span></div>
+  <div class="sub">한글 코드 → HTML 변환기</div>
+  <div class="spacer"></div>
+  <button class="btn" onclick="toggleTheme()" id="themeBtn">🌙 다크</button>
+  <button class="btn" onclick="openHelp()">📖 문법 도움말</button>
+  <button class="btn" onclick="loadExample()">예제 불러오기</button>
+  <a class="btn" href="html-han.html">↔ 역변환기로</a>
+  <input type="file" id="fileIn" accept=".txt,.han,.html" style="display:none" onchange="importCode(event)">
+  <button class="btn" onclick="document.getElementById('fileIn').click()">📂 코드 열기</button>
+  <button class="btn" onclick="exportCode()">💾 코드 저장</button>
+  <button class="btn green" onclick="copyCode()">📋 HTML 복사</button>
+  <button class="btn primary" onclick="downloadHtml()">⬇ HTML 저장</button>
+</div>
+
+<div class="main">
+  <div class="pane">
+    <div class="pane-head"><span class="dot dot-key"></span>한글 코드 입력</div>
+    <div class="toolbar-wrap" id="toolbarWrap">
+      <div class="toolbar-bar">
+        <button class="toolbar-toggle" onclick="toggleToolbar()"><span class="arrow">▼</span> 자주 쓰는 태그</button>
+      </div>
+      <div class="toolbar" id="tagToolbar"></div>
+    </div>
+    <div class="editor-wrap">
+      <textarea class="editor" id="input" spellcheck="false" placeholder="여기에 한글 코드를 입력하세요... ('<' 를 입력하면 태그 목록이 나옵니다)"></textarea>
+      <div class="autocomplete" id="autocomplete"></div>
+    </div>
+  </div>
+  <div class="pane">
+    <div class="pane-head"><span class="dot dot-code"></span>변환된 HTML</div>
+    <div class="code-out" id="output"></div>
+  </div>
+  <div class="pane">
+    <div class="pane-head"><span class="dot dot-prev"></span>미리보기
+      <div class="prev-tools">
+        <button class="dbtn active" id="dbtn-pc" onclick="setDevice('pc')">🖥 PC</button>
+        <button class="dbtn" id="dbtn-mobile" onclick="setDevice('mobile')">📱 모바일</button>
+      </div>
+    </div>
+    <div class="preview" id="previewArea"><div class="frame"><iframe id="preview"></iframe></div></div>
+  </div>
+</div>
+
+<div class="foot">
+  <span id="stat">대기 중</span>
+  <span id="saved" style="color:var(--accent2)"></span>
+  <div class="spacer"></div>
+  <span>줄: <b id="lines">0</b></span>
+</div>
+
+<!-- 도움말 -->
+<div class="help-overlay" id="help">
+  <div class="help-box">
+    <div class="help-head"><h3>📖 한글 문법 도움말</h3><button class="help-close" onclick="closeHelp()">×</button></div>
+    <div class="help-body">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:8px">각 줄에 <code style="background:var(--panel2);padding:2px 6px;border-radius:4px;color:var(--key)">&lt;태그&gt;내용</code> 형식으로 작성하세요. 속성은 <code style="background:var(--panel2);padding:2px 6px;border-radius:4px;color:var(--key)">[속성=값]</code> 으로 추가합니다.</p>
+      <div id="tag-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════ 한글 태그 매핑 ═══════════
+const TAGS = {
+  // 제목/문단
+  '큰제목':{tag:'h1',cat:'제목/문단'},
+  '제목':{tag:'h2',cat:'제목/문단'},
+  '중제목':{tag:'h3',cat:'제목/문단'},
+  '소제목':{tag:'h4',cat:'제목/문단'},
+  '문단':{tag:'p',cat:'제목/문단'},
+  '글':{tag:'p',cat:'제목/문단'},
+  '줄바꿈':{tag:'br',self:true,cat:'제목/문단'},
+  '구분선':{tag:'hr',self:true,cat:'제목/문단'},
+  '인용':{tag:'blockquote',cat:'제목/문단'},
+  // 꾸미기
+  '굵게':{tag:'strong',cat:'꾸미기'},
+  '기울임':{tag:'em',cat:'꾸미기'},
+  '밑줄':{tag:'u',cat:'꾸미기'},
+  '취소선':{tag:'s',cat:'꾸미기'},
+  '강조':{tag:'mark',cat:'꾸미기'},
+  '작게':{tag:'small',cat:'꾸미기'},
+  '코드':{tag:'code',cat:'꾸미기'},
+  '위첨자':{tag:'sup',cat:'꾸미기'},
+  '아래첨자':{tag:'sub',cat:'꾸미기'},
+  // 링크/이미지/버튼
+  '링크':{tag:'a',cat:'링크/이미지/버튼',attrMap:{'주소':'href','대상':'target'}},
+  '이미지':{tag:'img',self:true,cat:'링크/이미지/버튼',attrMap:{'주소':'src','설명':'alt','너비':'width','높이':'height'},content2:'alt'},
+  '버튼':{tag:'button',cat:'링크/이미지/버튼'},
+  // 목록/표
+  '목록':{tag:'ul',cat:'목록/표'},
+  '순서목록':{tag:'ol',cat:'목록/표'},
+  '항목':{tag:'li',cat:'목록/표'},
+  '표':{tag:'table',cat:'목록/표'},
+  '행':{tag:'tr',cat:'목록/표'},
+  '칸':{tag:'td',cat:'목록/표'},
+  '머리칸':{tag:'th',cat:'목록/표'},
+  // 구조
+  '구역':{tag:'div',cat:'구조'},
+  '범위':{tag:'span',cat:'구조'},
+  '구획':{tag:'section',cat:'구조'},
+  '머리말':{tag:'header',cat:'구조'},
+  '꼬리말':{tag:'footer',cat:'구조'},
+  // 입력
+  '입력칸':{tag:'input',self:true,cat:'입력',attrMap:{'종류':'type','안내':'placeholder','값':'value'}},
+  '여러줄입력':{tag:'textarea',cat:'입력',attrMap:{'안내':'placeholder'}},
+  // 미디어
+  '영상':{tag:'video',cat:'미디어',attrMap:{'주소':'src','너비':'width','높이':'height'},extra:'controls'},
+  '소리':{tag:'audio',cat:'미디어',attrMap:{'주소':'src'},extra:'controls'},
+  '유튜브':{tag:'__youtube__',cat:'미디어',attrMap:{'주소':'src'}},
+  '지도':{tag:'__map__',cat:'미디어',attrMap:{'장소':'q'}},
+};
+
+// 공통 속성: 색상/배경/크기/정렬
+const STYLE_ATTRS = {
+  '색':'color','글자색':'color','배경':'background','배경색':'background',
+  '크기':'font-size','글자크기':'font-size','정렬':'text-align',
+  '굵기':'font-weight','여백':'padding','바깥여백':'margin',
+  '둥글기':'border-radius','테두리':'border','너비':'width','높이':'height'
+};
+// 색상 한글 → 영문
+const COLORS={'빨강':'red','파랑':'blue','초록':'green','노랑':'yellow','검정':'black','하양':'white','회색':'gray','주황':'orange','보라':'purple','분홍':'pink','하늘':'skyblue','남색':'navy','갈색':'brown'};
+const ALIGN={'왼쪽':'left','가운데':'center','오른쪽':'right','양쪽':'justify'};
+
+function transpileLine(raw){
+  const line=raw.replace(/\t/g,'  ');
+  const indent=line.match(/^\s*/)[0];
+  let s=line.trim();
+  if(!s)return {html:'',indent};
+  if(s.startsWith('//')||s.startsWith('주석:'))return {html:'',indent,skip:true};
+
+  // <태그>내용 또는 <태그[속성=값]>내용
+  const m=s.match(/^<([^>\[]+)(\[[^\]]*\])*>(.*)$/);
+  if(!m){
+    // 태그 없으면 그냥 텍스트
+    return {html:indent+escapeHtml(s),indent};
+  }
+  const tagKo=m[1].trim();
+  const attrsRaw=s.match(/\[([^\]]*)\]/g)||[];
+  let content=m[3];
+
+  const def=TAGS[tagKo];
+  if(!def){
+    return {html:indent+'<!-- 알 수 없는 태그: '+escapeHtml(tagKo)+' -->',indent,unknown:tagKo};
+  }
+
+  // 속성 파싱
+  let attrs='',styles='';
+  attrsRaw.forEach(a=>{
+    const inner=a.slice(1,-1);
+    const eq=inner.indexOf('=');
+    if(eq<0)return;
+    const k=inner.slice(0,eq).trim();
+    let v=inner.slice(eq+1).trim();
+    // 태그 전용 속성
+    if(def.attrMap&&def.attrMap[k]){
+      attrs+=` ${def.attrMap[k]}="${escapeAttr(v)}"`;
+    }
+    // 스타일 속성
+    else if(STYLE_ATTRS[k]){
+      let cssV=v;
+      if(STYLE_ATTRS[k]==='color'||STYLE_ATTRS[k]==='background')cssV=COLORS[v]||v;
+      if(STYLE_ATTRS[k]==='text-align')cssV=ALIGN[v]||v;
+      if(STYLE_ATTRS[k]==='font-size'&&/^\d+$/.test(v))cssV=v+'px';
+      if((STYLE_ATTRS[k]==='padding'||STYLE_ATTRS[k]==='margin'||STYLE_ATTRS[k]==='border-radius'||STYLE_ATTRS[k]==='width'||STYLE_ATTRS[k]==='height')&&/^\d+$/.test(v))cssV=v+'px';
+      if(STYLE_ATTRS[k]==='font-weight'&&v==='굵게')cssV='bold';
+      styles+=`${STYLE_ATTRS[k]}:${cssV};`;
+    }
+    // 기타 속성 그대로
+    else{attrs+=` ${k}="${escapeAttr(v)}"`;}
+  });
+  if(styles)attrs+=` style="${styles}"`;
+
+  // 유튜브 특수 처리
+  if(def.tag==='__youtube__'){
+    let url=content.trim();
+    // 속성 주소가 있으면 사용
+    const srcM=attrsRaw.find(a=>a.includes('주소='));
+    if(srcM)url=srcM.slice(1,-1).split('=').slice(1).join('=').trim();
+    let id='';
+    const y1=url.match(/[?&]v=([^&]+)/);const y2=url.match(/youtu\.be\/([^?&]+)/);const y3=url.match(/embed\/([^?&]+)/);
+    id=y1?y1[1]:y2?y2[1]:y3?y3[1]:url;
+    return {html:indent+`<iframe width="560" height="315" src="https://www.youtube.com/embed/${escapeAttr(id)}" frameborder="0" allowfullscreen></iframe>`,indent};
+  }
+  // 지도 특수 처리
+  if(def.tag==='__map__'){
+    let place=content.trim();
+    const qM=attrsRaw.find(a=>a.includes('장소='));
+    if(qM)place=qM.slice(1,-1).split('=').slice(1).join('=').trim();
+    return {html:indent+`<iframe width="600" height="450" style="border:0" loading="lazy" src="https://maps.google.com/maps?q=${encodeURIComponent(place)}&output=embed"></iframe>`,indent};
+  }
+
+  // extra 속성 (controls 등)
+  if(def.extra)attrs+=' '+def.extra;
+
+  // self-closing 태그
+  if(def.self){
+    return {html:indent+`<${def.tag}${attrs}>`,indent};
+  }
+  // 일반 태그
+  const inner=transpileInline(content);
+  return {html:indent+`<${def.tag}${attrs}>${inner}</${def.tag}>`,indent};
+}
+
+// 인라인 한글 태그 변환 (문단 안의 *굵게* 같은 것)
+function transpileInline(text){
+  let t=escapeHtml(text);
+  // **굵게**
+  t=t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  // *기울임*
+  t=t.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  // __밑줄__
+  t=t.replace(/__([^_]+)__/g,'<u>$1</u>');
+  return t;
+}
+
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escapeAttr(s){return String(s).replace(/"/g,'&quot;');}
+
+function transpile(src){
+  const lines=src.split('\n');
+  const out=[];
+  for(let i=0;i<lines.length;i++){
+    let l=lines[i];
+    const t=l.trim();
+    // 간단 표 문법: |칸1|칸2|칸3|
+    if(/^\|.*\|$/.test(t)){
+      const indent=l.match(/^\s*/)[0];
+      // 연속된 표 줄 모으기
+      const rows=[];
+      while(i<lines.length&&/^\s*\|.*\|$/.test(lines[i])){
+        const cells=lines[i].trim().slice(1,-1).split('|');
+        rows.push(cells);
+        i++;
+      }
+      i--;
+      let tbl=indent+'<table border="1" cellpadding="6" style="border-collapse:collapse">';
+      rows.forEach((cells,idx)=>{
+        const tag=idx===0?'th':'td';
+        tbl+='<tr>'+cells.map(c=>`<${tag}>${transpileInline(c.trim())}</${tag}>`).join('')+'</tr>';
+      });
+      tbl+='</table>';
+      out.push(tbl);
+      continue;
+    }
+    const r=transpileLine(l);
+    if(r.skip)continue;
+    if(r.html!=='')out.push(r.html);
+  }
+  return out.join('\n');
+}
+
+// ═══════════ UI ═══════════
+const input=document.getElementById('input');
+const output=document.getElementById('output');
+const preview=document.getElementById('preview');
+
+function update(){
+  const src=input.value;
+  const html=transpile(src);
+  output.textContent=html||'(변환된 HTML이 여기 표시됩니다)';
+  const doc=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:-apple-system,sans-serif;padding:16px;line-height:1.6}img{max-width:100%}table{margin:8px 0}</style></head><body>${html}</body></html>`;
+  preview.srcdoc=doc;
+  document.getElementById('lines').textContent=src.split('\n').filter(l=>l.trim()).length;
+  document.getElementById('stat').textContent=html?'변환 완료':'대기 중';
+  autoSave(src);
+}
+
+// ═══════════ 자동 저장 ═══════════
+let saveTimer;
+function autoSave(src){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    try{
+      localStorage.setItem('hangulhtml_code',src);
+      const el=document.getElementById('saved');
+      el.textContent='✓ 자동 저장됨';
+      setTimeout(()=>el.textContent='',1500);
+    }catch(e){}
+  },600);
+}
+function loadSaved(){
+  try{
+    const saved=localStorage.getItem('hangulhtml_code');
+    if(saved&&saved.trim()){input.value=saved;return true;}
+  }catch(e){}
+  return false;
+}
+
+// ═══════════ 코드 불러오기/내보내기 ═══════════
+function exportCode(){
+  const blob=new Blob([input.value],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='한글코드.han';a.click();
+  toast('코드가 저장되었습니다!');
+}
+function importCode(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{input.value=ev.target.result;update();toast('코드를 불러왔습니다!');};
+  reader.readAsText(file,'utf-8');
+  e.target.value='';
+}
+input.addEventListener('input',update);
+// 탭키 처리
+input.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){e.preventDefault();const s=input.selectionStart,en=input.selectionEnd;input.value=input.value.slice(0,s)+'  '+input.value.slice(en);input.selectionStart=input.selectionEnd=s+2;update();}
+});
+
+function copyCode(){
+  const html=transpile(input.value);
+  navigator.clipboard.writeText(html).then(()=>toast('HTML이 복사되었습니다!'));
+}
+function downloadHtml(){
+  const html=transpile(input.value);
+  const full=`<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>문서</title>\n</head>\n<body>\n${html}\n</body>\n</html>`;
+  const blob=new Blob([full],{type:'text/html'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='문서.html';a.click();
+  toast('HTML 파일이 저장되었습니다!');
+}
+function loadExample(){
+  input.value=`<큰제목[색=파랑][정렬=가운데]>한글HTML 변환기
+<구분선>
+<제목>소개
+<문단>이것은 **한글 태그**로 작성한 *문서*입니다.
+<문단[배경=하늘][여백=12][둥글기=8]>속성도 한글로 지정할 수 있어요.
+
+<중제목>좋아하는 음식
+<목록>
+<항목>김치찌개
+<항목>비빔밥
+<항목>떡볶이
+
+<중제목>간단한 표
+|이름|나이|도시|
+|홍길동|25|서울|
+|김철수|30|부산|
+
+<중제목>영상과 지도
+<유튜브>https://youtu.be/dQw4w9WgXcQ
+<지도>서울 남산타워
+
+<중제목>링크와 버튼
+<링크[주소=https://github.com]>깃허브 가기
+<줄바꿈>
+<버튼[배경=초록][색=하양][여백=10][둥글기=6]>눌러보세요
+
+<인용[색=회색]>한글로 코딩하니 편리하네요!`;
+  update();
+}
+
+function openHelp(){
+  buildTagList();
+  document.getElementById('help').classList.add('open');
+}
+function closeHelp(){document.getElementById('help').classList.remove('open');}
+function buildTagList(){
+  const cats={};
+  for(const[ko,def]of Object.entries(TAGS)){
+    if(!cats[def.cat])cats[def.cat]=[];
+    cats[def.cat].push({ko,def});
+  }
+  let html='';
+  for(const[cat,items]of Object.entries(cats)){
+    html+=`<div class="tag-cat">${cat}</div><table class="tag-table"><tr><th>한글</th><th>HTML</th><th>예시</th></tr>`;
+    items.forEach(({ko,def})=>{
+      const ex=def.self?`&lt;${ko}&gt;`:`&lt;${ko}&gt;내용`;
+      let htmlTag=def.tag;
+      if(htmlTag==='__youtube__')htmlTag='iframe(유튜브)';
+      else if(htmlTag==='__map__')htmlTag='iframe(지도)';
+      html+=`<tr><td><code>${ko}</code></td><td>&lt;${htmlTag}&gt;</td><td style="color:var(--muted)">${ex}</td></tr>`;
+    });
+    html+='</table>';
+  }
+  // 스타일 속성
+  html+=`<div class="tag-cat">색상/스타일 속성 [속성=값]</div><table class="tag-table"><tr><th>한글 속성</th><th>설명</th><th>예시</th></tr>`;
+  const styleEx=[['색','글자 색','[색=빨강]'],['배경','배경 색','[배경=하늘]'],['크기','글자 크기','[크기=20]'],['정렬','정렬','[정렬=가운데]'],['여백','안쪽 여백','[여백=12]'],['둥글기','모서리 둥글기','[둥글기=8]'],['테두리','테두리','[테두리=1px solid]']];
+  styleEx.forEach(([k,d,e])=>html+=`<tr><td><code>${k}</code></td><td style="color:var(--muted)">${d}</td><td><code>${e}</code></td></tr>`);
+  html+='</table>';
+  // 인라인
+  html+=`<div class="tag-cat">문단 안 인라인 문법</div><table class="tag-table"><tr><th>문법</th><th>결과</th></tr><tr><td><code>**글자**</code></td><td>굵게</td></tr><tr><td><code>*글자*</code></td><td>기울임</td></tr><tr><td><code>__글자__</code></td><td>밑줄</td></tr></table>`;
+  // 간단 표
+  html+=`<div class="tag-cat">간단 표 문법</div><div style="font-size:13px;color:var(--muted);padding:0 10px;line-height:1.9">각 줄을 <code style="background:var(--panel2);padding:2px 6px;border-radius:4px;color:var(--key)">|</code> 로 칸을 나눠 작성하면 표가 됩니다.<br>첫 줄은 자동으로 머리글이 됩니다.<br><br><code style="background:var(--panel2);padding:2px 6px;border-radius:4px;color:var(--key)">|이름|나이|<br>|홍길동|25|</code></div>`;
+  // 색상 목록
+  html+=`<div class="tag-cat">사용 가능한 색상</div><div style="font-size:13px;color:var(--muted);padding:0 10px;line-height:2">${Object.keys(COLORS).join(', ')}</div>`;
+  document.getElementById('tag-list').innerHTML=html;
+}
+
+let tT;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),2500);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeHelp();});
+
+// ═══════════ 태그 툴바 ═══════════
+function buildToolbar(){
+  // 자주 쓰는 태그만 카테고리별로
+  const groups={
+    '제목':['큰제목','제목','중제목'],
+    '글':['문단','줄바꿈','구분선','인용'],
+    '꾸미기':['굵게','기울임','밑줄','강조'],
+    '목록':['목록','항목','순서목록'],
+    '미디어':['링크','이미지','버튼','유튜브','지도'],
+  };
+  let html='';
+  for(const[cat,tags]of Object.entries(groups)){
+    html+=`<span class="tbtn-cat">${cat}</span>`;
+    tags.forEach(t=>{
+      html+=`<button class="tbtn" onclick="insertTag('${t}')">${t}</button>`;
+    });
+  }
+  document.getElementById('tagToolbar').innerHTML=html;
+}
+function insertTag(ko){
+  const def=TAGS[ko];
+  const self=def&&def.self;
+  const snippet=self?`<${ko}>\n`:`<${ko}>내용</${ko}>`.replace(`</${ko}>`,'')+'\n';
+  // 커서 위치에 삽입
+  const s=input.selectionStart;
+  const before=input.value.slice(0,s);
+  const after=input.value.slice(input.selectionEnd);
+  const text=self?`<${ko}>\n`:`<${ko}>`;
+  input.value=before+text+after;
+  const newPos=before.length+text.length;
+  input.selectionStart=input.selectionEnd=newPos;
+  input.focus();
+  update();
+}
+
+// ═══════════ 자동완성 ═══════════
+const ac=document.getElementById('autocomplete');
+let acItems=[],acSel=-1;
+function showAutocomplete(filter){
+  const keys=Object.keys(TAGS).filter(k=>k.includes(filter));
+  if(keys.length===0){hideAutocomplete();return;}
+  acItems=keys;acSel=0;
+  ac.innerHTML=keys.map((k,i)=>{
+    const def=TAGS[k];let tagName=def.tag;
+    if(tagName==='__youtube__')tagName='유튜브';else if(tagName==='__map__')tagName='지도';
+    return `<div class="ac-item${i===0?' sel':''}" onmousedown="pickAutocomplete('${k}')"><span class="ac-tag">${k}</span><span class="ac-desc">&lt;${tagName}&gt;</span></div>`;
+  }).join('');
+  // 커서 근처에 위치
+  const coords=getCaretCoords();
+  ac.style.left=Math.min(coords.x,input.clientWidth-200)+'px';
+  ac.style.top=(coords.y+22)+'px';
+  ac.classList.add('show');
+}
+function hideAutocomplete(){ac.classList.remove('show');acSel=-1;acItems=[];}
+function pickAutocomplete(ko){
+  // 마지막 < 부터 현재까지 교체
+  const s=input.selectionStart;
+  const before=input.value.slice(0,s);
+  const lt=before.lastIndexOf('<');
+  const def=TAGS[ko];
+  const after=input.value.slice(s);
+  const text=`<${ko}>`;
+  input.value=before.slice(0,lt)+text+after;
+  const newPos=lt+text.length;
+  input.selectionStart=input.selectionEnd=newPos;
+  hideAutocomplete();input.focus();update();
+}
+function getCaretCoords(){
+  // 간단 추정: 텍스트 영역 기준 대략적 위치
+  const div=document.createElement('div');
+  const st=getComputedStyle(input);
+  ['fontSize','fontFamily','lineHeight','padding','whiteSpace','wordWrap','width'].forEach(p=>div.style[p]=st[p]);
+  div.style.position='absolute';div.style.visibility='hidden';div.style.whiteSpace='pre-wrap';
+  div.style.width=input.clientWidth+'px';
+  const txt=input.value.slice(0,input.selectionStart);
+  div.textContent=txt;
+  const span=document.createElement('span');span.textContent='|';div.appendChild(span);
+  document.body.appendChild(div);
+  const x=span.offsetLeft;const y=span.offsetTop-input.scrollTop;
+  document.body.removeChild(div);
+  return {x:x,y:y};
+}
+
+// 입력 감지: < 입력 시 자동완성
+input.addEventListener('input',()=>{
+  const s=input.selectionStart;
+  const before=input.value.slice(0,s);
+  const lt=before.lastIndexOf('<');
+  if(lt>=0){
+    const frag=before.slice(lt+1);
+    // > 나 공백이 없으면 태그 입력 중
+    if(!/[>\s\[]/.test(frag)){showAutocomplete(frag);return;}
+  }
+  hideAutocomplete();
+});
+// 키보드 탐색
+input.addEventListener('keydown',e=>{
+  if(!ac.classList.contains('show'))return;
+  if(e.key==='ArrowDown'){e.preventDefault();acSel=Math.min(acSel+1,acItems.length-1);updateAcSel();}
+  else if(e.key==='ArrowUp'){e.preventDefault();acSel=Math.max(acSel-1,0);updateAcSel();}
+  else if(e.key==='Enter'&&acSel>=0){e.preventDefault();pickAutocomplete(acItems[acSel]);}
+  else if(e.key==='Escape'){hideAutocomplete();}
+});
+function updateAcSel(){
+  ac.querySelectorAll('.ac-item').forEach((el,i)=>el.classList.toggle('sel',i===acSel));
+  const sel=ac.querySelector('.ac-item.sel');if(sel)sel.scrollIntoView({block:'nearest'});
+}
+document.addEventListener('click',e=>{if(!input.contains(e.target))hideAutocomplete();});
+
+// ═══════════ 테마 전환 ═══════════
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  const isLight=document.body.classList.contains('light');
+  document.getElementById('themeBtn').textContent=isLight?'☀ 라이트':'🌙 다크';
+  try{localStorage.setItem('hangulhtml_theme',isLight?'light':'dark');}catch(e){}
+}
+function loadTheme(){
+  try{
+    if(localStorage.getItem('hangulhtml_theme')==='light'){
+      document.body.classList.add('light');
+      document.getElementById('themeBtn').textContent='☀ 라이트';
+    }
+  }catch(e){}
+}
+
+// ═══════════ 반응형 미리보기 ═══════════
+function setDevice(d){
+  const area=document.getElementById('previewArea');
+  area.classList.toggle('mobile',d==='mobile');
+  document.getElementById('dbtn-pc').classList.toggle('active',d==='pc');
+  document.getElementById('dbtn-mobile').classList.toggle('active',d==='mobile');
+}
+
+// 초기화
+buildToolbar();
+loadTheme();
+
+// ═══════════ 툴바 펼치기/접기 ═══════════
+function toggleToolbar(){
+  const wrap=document.getElementById('toolbarWrap');
+  wrap.classList.toggle('collapsed');
+  try{localStorage.setItem('hangulhtml_toolbar',wrap.classList.contains('collapsed')?'closed':'open');}catch(e){}
+}
+function loadToolbarState(){
+  try{
+    if(localStorage.getItem('hangulhtml_toolbar')==='closed'){
+      document.getElementById('toolbarWrap').classList.add('collapsed');
+    }
+  }catch(e){}
+}
+loadToolbarState();
+
+// 시작 시: 저장된 코드 있으면 불러오고, 없으면 예제
+if(loadSaved()){update();}else{loadExample();}
+</script>
+</body>
+</html>
