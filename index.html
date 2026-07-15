@@ -8,8 +8,22 @@
 <title>한글HTML</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a2235,#2d3d5c);min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff;padding:20px;overflow:hidden}
-.card{background:#fff;color:#1a1d23;border-radius:20px;padding:48px 44px;width:460px;max-width:94vw;box-shadow:0 32px 80px rgba(0,0,0,.4);text-align:center}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a2235,#2d3d5c);min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff;padding:20px;overflow:auto}
+/* 상단 공지 배너 */
+.notice-banner{position:fixed;top:0;left:0;right:0;z-index:100;background:linear-gradient(90deg,#5b8def,#6d5bef);color:#fff;padding:11px 46px 11px 20px;font-size:13.5px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 12px rgba(0,0,0,.25);transition:transform .3s,opacity .3s}
+.notice-banner.hide{transform:translateY(-100%);opacity:0;pointer-events:none}
+.notice-banner .tag{background:rgba(255,255,255,.22);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0}
+.notice-banner .msg{font-weight:500}
+.notice-banner .msg a{color:#fff;text-decoration:underline;font-weight:600}
+.notice-close{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.2);border:none;color:#fff;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.notice-close:hover{background:rgba(255,255,255,.35)}
+/* 하단 고정 흰색 띠 (닫기 불가) */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:#fff;color:#4b5563;padding:11px 20px;font-size:12.5px;text-align:center;box-shadow:0 -2px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.bottom-bar b{color:#e2534a}
+.bottom-bar .sep{color:#d1d5db}
+.bottom-bar a{color:#5b8def;text-decoration:none}
+.bottom-bar a:hover{text-decoration:underline}
+.card{background:#fff;color:#1a1d23;border-radius:20px;padding:48px 44px;width:460px;max-width:94vw;box-shadow:0 32px 80px rgba(0,0,0,.4);text-align:center;margin:50px 0}
 .logo{width:88px;height:88px;margin:0 auto 22px;border-radius:22px;overflow:hidden;background:#5b8def;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(91,141,239,.4)}
 .logo img{width:100%;height:100%;object-fit:cover}
 .logo .fallback{font-size:34px;font-weight:800;color:#fff}
@@ -25,10 +39,17 @@ h1 span{color:#5b8def}
 </style>
 </head>
 <body>
+<!-- 상단 공지 배너 -->
+<div class="notice-banner" id="noticeBanner">
+  <span class="tag">공지</span>
+  <span class="msg">사이트가 <b>han-html.com</b> 으로 새 단장했습니다! 🎉 표·영상·역방향 변환 기능이 추가되었어요.</span>
+  <button class="notice-close" onclick="closeNotice()" title="닫기">×</button>
+</div>
+
 <div class="card">
   <div class="logo">
     <img src="/img/logo.png" alt="로고" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=fallback>한</span>'">
-</div>
+  </div>
   <h1>한글<span>HTML</span></h1>
   <div class="desc">한글 태그로 HTML을 만드는 변환기입니다.<br>어려운 영어 태그 없이, 한글로 웹페이지를 작성해 보세요.</div>
   <div class="feat">
@@ -46,5 +67,23 @@ h1 span{color:#5b8def}
   </div>
   <div class="foot">© zzompaida</div>
 </div>
+
+<!-- 하단 고정 띠 -->
+<div class="bottom-bar">
+  <span><b>현재 일부 기기에서 HTTPS(보안 접속이) 오류 나는 현상이 발생하고 있습니다. <br> 오류를 고치기 위해 노력하고 있으니 양해 부탁드립니다. </b></span>
+  <span></span>
+</div>
+
+<script>
+function closeNotice(){
+  document.getElementById('noticeBanner').classList.add('hide');
+  try{sessionStorage.setItem('noticeClosed','1');}catch(e){}
+}
+try{
+  if(sessionStorage.getItem('noticeClosed')==='1'){
+    document.getElementById('noticeBanner').style.display='none';
+  }
+}catch(e){}
+</script>
 </body>
 </html>
