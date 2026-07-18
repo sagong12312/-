@@ -18,7 +18,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .notice-close{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.2);border:none;color:#fff;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .15s}
 .notice-close:hover{background:rgba(255,255,255,.35)}
 /* 하단 고정 흰색 띠 (닫기 불가) */
-.bottom-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:#fff;color:#4b5563;padding:11px 20px;font-size:12.5px;text-align:center;box-shadow:0 -2px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:#fff;color:#4b5563;padding:11px 20px;min-height:42px;font-size:12.5px;text-align:center;box-shadow:0 -2px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
 .bottom-bar b{color:#e2534a}
 .bottom-bar .sep{color:#d1d5db}
 .bottom-bar a{color:#5b8def;text-decoration:none}
@@ -65,14 +65,11 @@ h1 span{color:#5b8def}
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
     보안 확인 후 이동합니다
   </div>
-  <div class="foot">© 2026 한글과 코딩 · Hangul & Coding</div>
+  <div class="foot">© 2026 한글과 코딩 · Hangul &amp; Coding</div>
 </div>
 
-<!-- 하단 고정 띠 -->
-<div> //class="bottom-bar">
-  <span><b>© 2026 한글과 코딩 · Hangul & Coding</b></span>
-  <span></span>
-</div>
+<!-- 하단 고정 띠 (비어 있음) -->
+<div class="bottom-bar"></div>
 
 <script>
 function closeNotice(){
