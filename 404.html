@@ -3,12 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="/img/logo_red.png" type="image/png">
+<link rel="icon" href="logo.png" type="image/png">
 <title>404 · 페이지를 찾을 수 없습니다</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a2235,#2d3d5c);min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff;padding:20px}
-.card{background:#fff;color:#1a1d23;border-radius:20px;padding:48px 44px;width:480px;max-width:94vw;box-shadow:0 32px 80px rgba(0,0,0,.4);text-align:center}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a2235,#2d3d5c);min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff;padding:20px;overflow:auto}
+.card{background:#fff;color:#1a1d23;border-radius:20px;padding:48px 44px;width:480px;max-width:94vw;box-shadow:0 32px 80px rgba(0,0,0,.4);text-align:center;margin:50px 0}
+/* 하단 고정 흰색 띠 (팩스) */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:#fff;color:#4b5563;padding:9px 20px;min-height:42px;text-align:center;box-shadow:0 -2px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.bottom-bar img{height:18px;display:block}
 .logo{width:64px;height:64px;margin:0 auto 24px;border-radius:16px;overflow:hidden;background:#5b8def;display:flex;align-items:center;justify-content:center}
 .logo img{width:100%;height:100%;object-fit:cover}
 .logo .fb{font-size:26px;font-weight:800;color:#fff}
@@ -32,12 +35,11 @@ h1{font-size:20px;margin-bottom:14px}
 .detail-row span{color:#9ca3af;flex-shrink:0}
 .detail-row b{color:#4b5563;font-weight:600;text-align:right;word-break:break-all;font-family:'D2Coding','Consolas',monospace;font-size:11px}
 .detail-desc{font-size:12px;color:#6b7280;line-height:1.7;margin-top:12px;padding-top:12px;border-top:1px solid #e8ebf0}
-.foot{margin-top:6px;font-size:11px;color:#b6bcc9}
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="logo"><img src="logo.png" alt="로고" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=fb>한</span>'"></div>
+  <div class="logo"><img src="/img/logo.png" alt="로고" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=fb>한</span>'"></div>
   <h1>페이지를 찾을 수 없습니다</h1>
   <div class="msg">
     죄송합니다. 찾으시는 페이지가 존재하지 않거나<br>
@@ -46,11 +48,11 @@ h1{font-size:20px;margin-bottom:14px}
   <div class="btns">
     <a href="/" class="btn primary">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
-      홈으로 돌아가기
+      홈으로
     </a>
     <button class="btn" onclick="history.back()">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-      이전 페이지
+      이전 페이지로
     </button>
   </div>
   <button class="detail-toggle" id="detailBtn" onclick="toggleDetail()">
@@ -62,15 +64,19 @@ h1{font-size:20px;margin-bottom:14px}
     <div class="detail-row"><span>요청 주소</span><b id="d-url">-</b></div>
     <div class="detail-row"><span>참조 페이지</span><b id="d-ref">-</b></div>
     <div class="detail-row"><span>발생 시각</span><b id="d-time">-</b></div>
-    <div class="detail-desc">서버가 요청하신 주소에 해당하는 파일을 찾지 못했습니다. 주소의 철자나 대소문자, 확장자(.html)를 다시 확인해 주시길 바랍니다.</div>
+    <div class="detail-desc">서버가 요청하신 주소에 해당하는 파일을 찾지 못했습니다. 주소의 철자나 대소문자, 확장자(.html)를 다시 확인해 주세요.</div>
   </div>
   <div class="foot">
-    문제가 계속되면 주소를 다시 한번 확인해 주시길 바랍니다.<br>
-    이용해 주셔서 대단히 감사합니다.
-    <div class="foot">© 2026 한글과 코딩 · Hangul & Coding</div>
-</div>
+    문제가 계속되면 주소를 다시 한번 확인해 주세요.<br>
+    이용해 주셔서 감사합니다.
   </div>
 </div>
+
+<!-- 하단 고정 띠 (팩스) -->
+<div class="bottom-bar">
+  <img src="/img/fax.webp" alt="FAX 053)289-5456">
+</div>
+
 <script>
 function toggleDetail(){
   document.getElementById('detail').classList.toggle('open');
